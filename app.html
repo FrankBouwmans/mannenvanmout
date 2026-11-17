@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="nl" class="app">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brouwlog – Mannen van Mout</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/hop.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Inter:wght@400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="app">
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img class="hop" src="assets/hop.svg" alt="">Mannen van Mout</a>
+    <div class="row" id="userbar" style="color:var(--cream)">
+      <span id="who" style="font-size:.85rem;opacity:.8"></span>
+      <button class="btn small ghost hidden" id="btnPw">Wachtwoord</button>
+      <button class="btn small ghost hidden" id="btnLogout">Uitloggen</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap" id="main">
+  <div class="empty">Laden…</div>
+</main>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
