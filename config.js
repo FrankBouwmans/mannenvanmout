@@ -11,8 +11,8 @@ window.MVM_CONFIG = {
      de beveiliging zit in de database-regels (schema.sql).
      Zolang deze leeg zijn werkt de publieke site gewoon, alleen het
      inloggedeelte niet. */
-  supabaseUrl: "",          // bijv. "https://abcdefgh.supabase.co"
-  supabaseAnonKey: "",      // bijv. "eyJhbGciOi..." of "sb_publishable_..."
+  supabaseUrl: "https://eujyabceagfxvtxluzai.supabase.co",          // bijv. "https://abcdefgh.supabase.co"
+  supabaseAnonKey: "sb_publishable_pTbWSeeaV-Y4YOVc6ESHdw_pBUVKply",      // bijv. "eyJhbGciOi..." of "sb_publishable_..."
 
   /* --- 2. De brouwers ----------------------------------------------------
      Volgorde = volgorde op het etiket (van links naar rechts).
