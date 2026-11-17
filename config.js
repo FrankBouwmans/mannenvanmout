@@ -20,15 +20,15 @@ window.MVM_CONFIG = {
   brewers: [
     {
       name: "Marco K",
-      role: "De Receptengoeroe",
+      role: "De Roerganger",
       photo: "assets/brouwer1.jpg",
-      quote: "Heeft voor elk bier een spreadsheet. En voor elke spreadsheet een bier."
+      quote: "Niemand roert de maisch zoals hij. Zegt hij zelf."
     },
     {
       name: "Tom K",
-      role: "De Roerganger",
+      role: "De Receptengoeroe",
       photo: "assets/brouwer2.jpg",
-      quote: "Niemand roert de maisch zoals hij. Zegt hij zelf."
+      quote: "Heeft voor elk bier een spreadsheet. En voor elke spreadsheet een bier."
     },
     {
       name: "Marco S",
