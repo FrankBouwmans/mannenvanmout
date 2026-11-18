@@ -306,3 +306,8 @@ button.ph.etiket:hover .zoom,button.ph.etiket:focus-visible .zoom{opacity:1}
 .etiket-box img{display:block;max-width:100%;max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .etiket-box p{text-align:center;color:var(--gold-2);font-family:var(--display);font-size:1.3rem;margin:12px 0 0}
 .etiket-box .sluit{position:absolute;top:-14px;right:-14px;width:40px;height:40px;border-radius:50%;border:0;background:var(--gold);color:#2a1607;font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+
+/* hero: brede foto van de vier brouwers */
+.hero .wrap{grid-template-columns:1fr 1.15fr}
+.hero-img{width:100%;height:auto;transform:rotate(-1deg)}
+@media (max-width:860px){.hero .wrap{grid-template-columns:1fr}.hero-img{transform:none}}
