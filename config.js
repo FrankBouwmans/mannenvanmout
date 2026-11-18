@@ -123,7 +123,8 @@ window.MVM_CONFIG = {
       name: "Moutmakkers Blond",
       style: "Klassiek Belgisch blond",
       abv: 6.9,
-      image: "assets/fles-blond.jpg",
+      image: "assets/etiket-blond.jpg",
+      labelFull: "assets/etiket-blond-volledig.jpg",   // voor- en achteretiket (vergroten)
       description: "Fris en rond, goudblond van kleur en zacht moutig. Vol van smaak en gevaarlijk doordrinkbaar."
     },
     {
@@ -131,6 +132,7 @@ window.MVM_CONFIG = {
       style: "Belgische tripel",
       abv: null,             // vul in zodra gemeten, bijv. 8.5
       image: "assets/etiket-tripel.jpg",
+      labelFull: "assets/etiket-tripel-volledig.jpg",
       description: "Een karaktervolle tripel, goud van kleur. Volmoutig, kruidig en met een verfijnde bitterheid."
     }
   ]

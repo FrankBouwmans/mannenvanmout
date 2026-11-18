@@ -291,3 +291,18 @@ section[id]{scroll-margin-top:24px}
   .kaart-achter{gap:10px}
   .quiz-cta{margin-top:24px}
 }
+
+/* etiketten bij "Onze bieren" */
+.beer .ph.etiket{all:unset;box-sizing:border-box;display:grid;place-items:center;position:relative;width:100%;aspect-ratio:4/3;background:radial-gradient(circle at 50% 40%,#3a2214,#1b0e08 75%);padding:14px;overflow:hidden}
+button.ph.etiket{cursor:zoom-in}
+.beer .ph.etiket img{position:absolute;inset:14px;width:calc(100% - 28px);height:calc(100% - 28px);object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.55));transition:transform .25s}
+button.ph.etiket:hover img,button.ph.etiket:focus-visible img{transform:scale(1.04)}
+button.ph.etiket:focus-visible{outline:3px solid var(--gold-2);outline-offset:-3px}
+.beer .ph .zoom{position:absolute;z-index:2;right:10px;bottom:10px;font-family:var(--sans);font-size:.78rem;font-weight:600;background:rgba(27,14,8,.85);color:var(--gold-2);border:1px solid rgba(224,166,58,.5);padding:4px 10px;border-radius:999px;opacity:0;transition:opacity .2s}
+button.ph.etiket:hover .zoom,button.ph.etiket:focus-visible .zoom{opacity:1}
+@media (hover:none){.beer .ph .zoom{opacity:1}}
+.etiket-box{border:0;padding:0;background:transparent;max-width:min(1200px,94vw);max-height:92vh;overflow:visible}
+.etiket-box::backdrop{background:rgba(10,5,3,.88)}
+.etiket-box img{display:block;max-width:100%;max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.etiket-box p{text-align:center;color:var(--gold-2);font-family:var(--display);font-size:1.3rem;margin:12px 0 0}
+.etiket-box .sluit{position:absolute;top:-14px;right:-14px;width:40px;height:40px;border-radius:50%;border:0;background:var(--gold);color:#2a1607;font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4)}

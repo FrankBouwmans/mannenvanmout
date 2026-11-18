@@ -44,7 +44,11 @@
   const hop = `<img src="assets/hop.svg" alt="" style="width:70px;opacity:.7">`;
   const beerCard = (b) => {
     const abv = b.abv != null && b.abv !== "" ? `<b>${Number(b.abv).toFixed(1).replace(".", ",")}% vol</b>` : "";
-    const ph = b.image ? `<div class="ph" style="background-image:url('${esc(b.image)}')"></div>` : `<div class="ph">${hop}</div>`;
+    const ph = !b.image ? `<div class="ph">${hop}</div>`
+      : b.labelFull
+        ? `<button type="button" class="ph etiket" data-label="${esc(b.labelFull)}" data-name="${esc(b.name)}" aria-label="Bekijk het hele etiket van ${esc(b.name)}">
+             <img src="${esc(b.image)}" alt="Etiket van ${esc(b.name)}" loading="lazy"><span class="zoom">Bekijk het hele etiket</span></button>`
+        : `<div class="ph etiket"><img src="${esc(b.image)}" alt="Etiket van ${esc(b.name)}" loading="lazy"></div>`;
     return `<article class="beer">${ph}<div class="body">
       <h3>${esc(b.name)}</h3>
       <div class="meta">${abv}<span>${esc(b.style || "")}</span>${b.batch_no ? `<span>Batch ${esc(b.batch_no)}</span>` : ""}</div>
@@ -52,6 +56,19 @@
     </div></article>`;
   };
   const el = document.getElementById("beers");
+  // etiket vergroten (voor- en achterkant)
+  const box = document.createElement("dialog");
+  box.className = "etiket-box";
+  box.innerHTML = `<button type="button" class="sluit" aria-label="Sluiten">×</button><img alt=""><p></p>`;
+  document.body.appendChild(box);
+  box.addEventListener("click", (e) => { if (e.target === box || e.target.classList.contains("sluit")) box.close(); });
+  el.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-label]"); if (!t) return;
+    const img = box.querySelector("img");
+    img.src = t.dataset.label; img.alt = "Voor- en achteretiket van " + t.dataset.name;
+    box.querySelector("p").textContent = t.dataset.name;
+    box.showModal();
+  });
   const featured = cfg.featuredBeers || [];
   el.innerHTML = featured.map(beerCard).join("");
 
