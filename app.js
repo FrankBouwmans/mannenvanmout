@@ -43,7 +43,8 @@
     return out;
   }
   async function loadProfiles() {
-    const { data, error } = await sb.from("kettle_profiles").select("*").order("sort");
+    let data = null, error = null;
+    try { ({ data, error } = await sb.from("kettle_profiles").select("*").order("sort")); } catch (e) { error = e; }
     profilesLoaded = true;
     if (error || !data) { profilesMissing = true; return; }
     profilesMissing = false;
@@ -132,6 +133,7 @@
     if (h === "#/nieuw") return viewBrew(null);
     if (h === "#/import") return viewImport();
     if (h === "#/ketels") return viewKettles();
+    if (h === "#/brouwers") return viewBrewers();
     return viewList();
   }
 
@@ -210,6 +212,7 @@
     cacheList = data || [];
     main.innerHTML = `
       <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Brouwlog</h1><span class="spacer"></span>
+        <a class="btn ghost" href="#/brouwers" style="color:var(--red)">👥 Brouwers</a>
         <a class="btn ghost" href="#/ketels" style="color:var(--red)">⚙ Ketels</a>
         <a class="btn ghost" href="#/import" style="color:var(--red)">⇩ Importeren</a>
         <a class="btn" href="#/nieuw">＋ Nieuw brouwsel</a></div>
@@ -436,6 +439,85 @@
       b.disabled = false;
       $(`[data-pmsg="${k}"]`, main).textContent = error ? "Fout: " + error.message : "Opgeslagen ✓";
       if (!error) PROFILES[k] = prof;
+    }));
+  }
+
+  /* ---------- Brouwers (leden) ---------- */
+  async function brouwersFn(body) {
+    const { data, error } = await sb.functions.invoke("brouwers", { body });
+    if (error) {
+      let msg = error.message, missing = false;
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { missing = true; }
+      if (/Failed to send|NOT_FOUND|not found|404/i.test(msg)) missing = true;
+      const err = new Error(missing ? "missing" : msg); err.missing = missing; throw err;
+    }
+    return typeof data === "string" ? JSON.parse(data) : data;
+  }
+  async function viewBrewers(flash) {
+    main.innerHTML = `<div class="empty">Brouwers ophalen…</div>`;
+    let list = [], me = session.user.email, fnOk = true, warn = "";
+    try { const r = await brouwersFn({ action: "list" }); list = r.members || []; me = r.me || me; }
+    catch (e) {
+      fnOk = false;
+      warn = e.missing ? "De uitnodigingsfunctie is nog niet geïnstalleerd in Supabase (Edge Function <code>brouwers</code>). Je ziet hieronder alleen de ledenlijst." : esc(e.message);
+      const { data } = await sb.from("members").select("*").order("created_at");
+      list = (data || []).map((m) => Object.assign({}, m, { status: "onbekend" }));
+    }
+    const badge = { actief: "gebotteld", uitgenodigd: "vergisting", "geen account": "op", aangemaakt: "lagering", onbekend: "" };
+    main.innerHTML = `
+      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle brouwsels</a></p>
+      <h1 style="margin:0 0 4px">Brouwers</h1>
+      <p class="hint" style="margin-top:0">Iedereen op deze lijst kan inloggen op de brouwlog. De kwartetkaarten op de publieke site pas je aan in <code>config.js</code>.</p>
+      ${flash ? `<div class="msg ok">${flash}</div>` : ""}${warn ? `<div class="msg info">${warn}</div>` : ""}
+      <div class="card">
+        <div class="tablewrap"><table class="list"><thead><tr><th>Naam</th><th>E-mail</th><th>Status</th><th>Laatst ingelogd</th><th></th></tr></thead><tbody>
+          ${list.map((m) => `<tr>
+            <td><b>${esc(m.name || "–")}</b>${m.email.toLowerCase() === String(me).toLowerCase() ? ' <span class="hint">(jij)</span>' : ""}</td>
+            <td>${esc(m.email)}</td>
+            <td><span class="badge ${badge[m.status] || ""}">${esc(m.status)}</span></td>
+            <td>${m.last_sign_in_at ? fmtDateTime(m.last_sign_in_at) : m.invited_at ? `<span class="hint">uitgenodigd ${fmtDate(m.invited_at)}</span>` : "–"}</td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn small ghost" style="color:var(--red)" data-ren="${esc(m.email)}" data-name="${esc(m.name || "")}">Naam</button>
+              ${fnOk && m.status !== "actief" ? `<button class="btn small" data-inv="${esc(m.email)}" data-name="${esc(m.name || "")}">${m.status === "uitgenodigd" ? "Opnieuw uitnodigen" : "Uitnodigen"}</button>` : ""}
+              ${m.email.toLowerCase() !== String(me).toLowerCase() ? `<button class="btn small danger" data-rm="${esc(m.email)}">Verwijderen</button>` : ""}
+            </td></tr>`).join("")}
+        </tbody></table></div>
+      </div>
+      <div class="card" style="margin-top:16px;max-width:720px">
+        <h2>Nieuwe brouwer uitnodigen</h2>
+        <form id="invf" class="grid g2" style="align-items:end">
+          <div class="field"><label>Naam</label><input id="inv_name" type="text" placeholder="Bijv. Jan J" required></div>
+          <div class="field"><label>E-mail</label><input id="inv_email" type="email" placeholder="jan@voorbeeld.nl" required></div>
+          <div class="field" style="grid-column:1/-1;margin-bottom:0"><button class="btn" ${fnOk ? "" : "disabled"}>✉ Uitnodiging versturen</button> <span class="hint" id="invmsg"></span></div>
+        </form>
+        <p class="hint">De brouwer krijgt een mail van Supabase, klikt op de link en kiest een wachtwoord. Supabase verstuurt standaard maar een paar mails per uur.</p>
+      </div>`;
+    const busy = (b, t) => { b.disabled = true; b.textContent = t; };
+    $("#invf").onsubmit = async (e) => {
+      e.preventDefault();
+      const b = $("#invf button"); busy(b, "Versturen…");
+      try { const r = await brouwersFn({ action: "invite", email: $("#inv_email").value, name: $("#inv_name").value, redirectTo: location.origin + location.pathname }); viewBrewers(esc(r.note || "Uitnodiging verstuurd.")); }
+      catch (err) { $("#invmsg").innerHTML = `<span style="color:#a33">${esc(err.missing ? "Installeer eerst de functie 'brouwers' in Supabase." : err.message)}</span>`; b.disabled = false; b.textContent = "✉ Uitnodiging versturen"; }
+    };
+    $$("[data-inv]", main).forEach((b) => (b.onclick = async () => {
+      busy(b, "Bezig…");
+      try { const r = await brouwersFn({ action: "invite", email: b.dataset.inv, name: b.dataset.name || null, redirectTo: location.origin + location.pathname }); viewBrewers(esc(r.note || "Uitnodiging verstuurd.")); }
+      catch (err) { alert(err.message); viewBrewers(); }
+    }));
+    $$("[data-rm]", main).forEach((b) => (b.onclick = async () => {
+      if (!confirm(`${b.dataset.rm} verwijderen? Deze persoon kan dan niet meer inloggen.`)) return;
+      busy(b, "Bezig…");
+      try {
+        if (fnOk) { const r = await brouwersFn({ action: "remove", email: b.dataset.rm }); viewBrewers(esc(r.note || "Verwijderd.")); }
+        else { const { error } = await sb.from("members").delete().eq("email", b.dataset.rm); if (error) throw error; viewBrewers("Verwijderd van de ledenlijst."); }
+      } catch (err) { alert(err.message); viewBrewers(); }
+    }));
+    $$("[data-ren]", main).forEach((b) => (b.onclick = async () => {
+      const n = prompt("Naam voor " + b.dataset.ren, b.dataset.name || "");
+      if (n === null) return;
+      const { error } = await sb.from("members").update({ name: n.trim() || null }).eq("email", b.dataset.ren);
+      if (error) return alert(error.message + "\n\nDraai eerst brouwers.sql in Supabase.");
+      viewBrewers("Naam bijgewerkt.");
     }));
   }
 
