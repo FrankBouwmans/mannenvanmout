@@ -11,10 +11,49 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   const STATUSES = ["gepland", "vergisting", "lagering", "gebotteld", "op"];
-  const KETTLES = (cfg.kettles && cfg.kettles.length ? cfg.kettles : ["Brewmonk", "Grainfather"]);
+  let KETTLES = (cfg.kettles && cfg.kettles.length ? cfg.kettles : ["Brewmonk", "Grainfather"]);
+  let PROFILES = {}, profilesLoaded = false, profilesMissing = false;
+  // Ketelprofiel: velden (sleutel, label, eenheid, groep, type)
+  const P_FIELDS = [
+    ["title", "Naam uitrusting", "", "Algemeen", "text"], ["brand", "Merk", "", "Algemeen", "text"],
+    ["batch_size_l", "Batchgrootte", "L", "Algemeen"], ["vessels", "Aantal vaten", "", "Algemeen"],
+    ["recirculation", "Recirculatie", "", "Algemeen", "text"], ["controller", "Controller", "", "Algemeen", "text"],
+    ["mash_tun_l", "Volume maischvat", "L", "Maischen"], ["mash_eff", "Maischrendement", "%", "Maischen"],
+    ["mash_deadspace_l", "Dode ruimte maischvat", "L", "Maischen"], ["mash_thickness", "Maischdikte", "L/kg", "Maischen"],
+    ["mash_tun_loss_l", "Verlies maischvat", "L", "Maischen"], ["grain_absorption", "Graanabsorptie", "L/kg", "Maischen"],
+    ["sparge_vessel_l", "Volume spoelwatervat", "L", "Spoelen"], ["sparge_grain_absorption", "Graanabsorptie spoelen", "L/kg", "Spoelen"],
+    ["sparge_deadspace_l", "Dode ruimte spoelvat", "L", "Spoelen"],
+    ["boil_volume_l", "Kookvolume", "L", "Koken"], ["boil_loss_lh", "Verdamping", "L/uur", "Koken"],
+    ["wort_shrinkage", "Krimp wort (afkoelen)", "%", "Koken"], ["trub_chiller_loss_l", "Verlies trub en koeler", "L", "Koken"],
+    ["kettle_diameter_cm", "Diameter ketel", "cm", "Koken"],
+    ["cooling", "Koelmethode", "", "Koelen", "text"], ["cooling_param", "Koelparameter", "", "Koelen", "text"],
+    ["brewhouse_eff", "Brouwzaalrendement", "%", "Gemeten"]
+  ];
+  const isSugar = (name) => /suiker|sugar|dextro|candi|kandij|honing|honey|sucrose|glucose|siroop|syrup/i.test(name || "");
+  const yieldOf = (f) => (num(f.yield) != null ? num(f.yield) : isSugar(f.name) ? 100 : 80);
+  // rendement en verliezen uit één ketel-registratie
+  function calcEff(rec, ferms, boilMin, prof) {
+    const pot = (list) => list.reduce((a, f) => a + (num(f.kg) || 0) * yieldOf(f) / 100 * 384, 0);
+    const all = pot(ferms || []), mashOnly = pot((ferms || []).filter((f) => !isSugar(f.name) && yieldOf(f) < 95));
+    const out = {};
+    if (rec.og && rec.volume_l && all) out.bh = ((rec.og - 1) * 1000 * rec.volume_l) / all * 100;
+    if (rec.pre_boil_sg && rec.pre_boil_l && mashOnly) out.mash = ((rec.pre_boil_sg - 1) * 1000 * rec.pre_boil_l) / mashOnly * 100;
+    if (rec.pre_boil_l && rec.post_boil_l && boilMin) out.boil = (rec.pre_boil_l - rec.post_boil_l) / (boilMin / 60);
+    if (rec.post_boil_l && rec.volume_l) out.loss = rec.post_boil_l * (1 - ((prof && num(prof.wort_shrinkage)) || 4) / 100) - rec.volume_l;
+    return out;
+  }
+  async function loadProfiles() {
+    const { data, error } = await sb.from("kettle_profiles").select("*").order("sort");
+    profilesLoaded = true;
+    if (error || !data) { profilesMissing = true; return; }
+    profilesMissing = false;
+    PROFILES = {}; data.forEach((r) => (PROFILES[r.name] = r.profile || {}));
+    if (data.length) KETTLES = data.map((r) => r.name);
+  }
   const KETTLE_COLORS = ["#7d1d1d", "#4f6b26", "#1c5378", "#b36b00"];
   const K_FIELDS = [["og", "Begin-SG (OG)", "1.074", "sg"], ["fg", "Eind-SG (FG)", "1.009", "sg"], ["pre_boil_sg", "SG voor koken", "1.062", "sg"],
     ["mash_ph", "pH maisch", "5.3", "num"], ["volume_l", "Volume vergister (L)", "23", "num"], ["bottled_l", "Gebotteld (L)", "20", "num"]];
+  const VOL_FIELDS = [["pre_boil_l", "Volume voor koken (L)", "28", "num"], ["post_boil_l", "Volume na koken (L)", "25", "num"]];
   const HOP_USES = ["Koken", "Whirlpool", "Dryhop", "First wort", "Maischen"];
 
   /* ---------- rekenwerk ---------- */
@@ -87,10 +126,12 @@
   async function route() {
     if (recovering && session) return viewSetPassword(true);
     if (!session) return viewLogin();
+    if (!profilesLoaded) await loadProfiles();
     const h = location.hash || "#/";
     if (h.startsWith("#/b/")) return viewBrew(h.slice(4));
     if (h === "#/nieuw") return viewBrew(null);
     if (h === "#/import") return viewImport();
+    if (h === "#/ketels") return viewKettles();
     return viewList();
   }
 
@@ -169,6 +210,7 @@
     cacheList = data || [];
     main.innerHTML = `
       <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Brouwlog</h1><span class="spacer"></span>
+        <a class="btn ghost" href="#/ketels" style="color:var(--red)">⚙ Ketels</a>
         <a class="btn ghost" href="#/import" style="color:var(--red)">⇩ Importeren</a>
         <a class="btn" href="#/nieuw">＋ Nieuw brouwsel</a></div>
       <p class="hint" style="margin-top:0">${cacheList.length} brouwsel${cacheList.length === 1 ? "" : "s"} · alles wat we ooit (bijna) goed deden</p>
@@ -259,6 +301,144 @@
 
   }
 
+  /* ---------- Proefmomenten (scoreformulier, BJCP-schaal) ---------- */
+  const T_CATS = [["aroma", "Aroma", 12, "Mout, hop, esters, fenolen, alcohol…"], ["appearance", "Uiterlijk", 3, "Kleur, helderheid, schuim"],
+    ["flavor", "Smaak", 20, "Mout, hop, bitterheid, balans, afdronk"], ["mouthfeel", "Mondgevoel", 5, "Body, koolzuur, warmte, droogte"],
+    ["overall", "Totaalindruk", 10, "Drinkbaarheid, plezier, past het bij de stijl?"]];
+  const tLabel = (t) => (t >= 45 ? "Uitmuntend" : t >= 38 ? "Excellent" : t >= 30 ? "Zeer goed" : t >= 21 ? "Goed" : t >= 14 ? "Redelijk" : "Matig");
+  const tTotal = (t) => T_CATS.reduce((a, [k]) => a + (Number(t[k]) || 0), 0);
+
+  function renderTastings() {
+    const host = $("#tastingCard"); if (!host) return;
+    if (!brew.id) { host.innerHTML = `<h2>Proefmomenten</h2><div class="msg info">Sla het brouwsel eerst op; daarna kun je proeven vastleggen.</div>`; return; }
+    if (tastingsMissing) { host.innerHTML = `<h2>Proefmomenten</h2><div class="msg info">De database kent de proefmomenten nog niet. Draai eerst de SQL voor ketels en proeven in Supabase.</div>`; return; }
+    const tasters = (cfg.brewers || []).map((b) => b.name);
+    const bottle = brew.bottle_date ? new Date(brew.bottle_date) : null;
+    const plan = [14, 28, 56].map((d) => {
+      const at = bottle ? new Date(bottle.getTime() + d * 864e5) : null;
+      const done = at && tastings.some((t) => Math.abs(new Date(t.tasted_on) - at) <= 7 * 864e5);
+      return `<span class="badge ${done ? "gebotteld" : at && at < new Date() ? "vergisting" : ""}" style="font-size:.8rem;padding:4px 10px">${d / 7} weken${at ? " · " + at.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : ""}${done ? " ✓" : ""}</span>`;
+    }).join(" ");
+    const avg = (list) => (list.length ? list.reduce((a, t) => a + tTotal(t), 0) / list.length : null);
+    const perK = (brew.kettles || []).length > 1 ? brew.kettles.map((k) => { const l = tastings.filter((t) => t.kettle === k); return l.length ? `${esc(k)}: <b>${fmt1(avg(l))}</b>/50` : ""; }).filter(Boolean).join(" · ") : "";
+    host.innerHTML = `
+      <h2>Proefmomenten</h2>
+      <p class="hint" style="margin-top:0">Vast scoreformulier (BJCP-schaal, max. 50 punten). Proef bij voorkeur 2, 4 en 8 weken na het bottelen${bottle ? "" : " (vul een botteldatum in voor de data)"}.</p>
+      <div class="row" style="margin-bottom:14px">${plan}</div>
+      ${tastings.length ? `<div class="msg ok" style="margin-top:0">Gemiddeld <b>${fmt1(avg(tastings))}</b>/50 (${tLabel(avg(tastings))}) over ${tastings.length} proeving${tastings.length === 1 ? "" : "en"}${perK ? " · " + perK : ""}</div>
+      <div class="tablewrap"><table class="list"><thead><tr><th>Datum</th><th>Proever</th>${(brew.kettles || []).length > 1 ? "<th>Ketel</th>" : ""}${T_CATS.map(([, l, m]) => `<th>${l} /${m}</th>`).join("")}<th>Totaal</th><th>Notities</th><th></th></tr></thead><tbody>
+        ${tastings.map((t) => `<tr><td>${fmtDate(t.tasted_on)}</td><td>${esc(t.taster || "")}</td>${(brew.kettles || []).length > 1 ? `<td>${esc(t.kettle || "–")}</td>` : ""}
+          ${T_CATS.map(([k]) => `<td>${t[k] ?? ""}</td>`).join("")}<td><b>${tTotal(t)}</b> <span class="hint">${tLabel(tTotal(t))}</span></td><td style="white-space:pre-line">${esc(t.notes || "")}</td>
+          <td><button class="x" data-tdel="${t.id}" title="Verwijderen">×</button></td></tr>`).join("")}
+      </tbody></table></div>` : ""}
+      <h3 style="font-family:var(--display);font-weight:400;color:var(--red);margin:18px 0 8px">Nieuwe proeving</h3>
+      <form id="tf">
+        <div class="grid g3">
+          <div class="field"><label>Datum</label><input type="date" id="t_on" value="${new Date().toISOString().slice(0, 10)}"></div>
+          <div class="field"><label>Proever</label><select id="t_by">${tasters.map((n) => `<option>${esc(n)}</option>`).join("")}<option>Gast</option></select></div>
+          ${(brew.kettles || []).length > 1 ? `<div class="field"><label>Ketel</label><select id="t_k">${brew.kettles.map((k) => `<option>${esc(k)}</option>`).join("")}<option value="">Gemengd / onbekend</option></select></div>` : "<div></div>"}
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+          ${T_CATS.map(([k, l, m, h]) => `<div class="field"><label title="${esc(h)}">${l} (0–${m})</label><input type="number" min="0" max="${m}" step="1" data-tc="${k}" placeholder="${Math.round(m * 0.7)}"><div class="hint" style="font-size:.75rem">${h}</div></div>`).join("")}
+        </div>
+        <div class="field"><label>Notities</label><textarea id="t_notes" style="min-height:80px" placeholder="Wat proef je? Wat zou je de volgende keer anders doen?"></textarea></div>
+        <div class="row"><button class="btn">Proeving opslaan</button><span class="hint" id="t_sum"></span></div>
+      </form>`;
+    const sum = () => { const t = {}; $$("[data-tc]", host).forEach((i) => (t[i.dataset.tc] = num(i.value) || 0)); const tot = tTotal(t); $("#t_sum").textContent = `Totaal: ${tot}/50 · ${tLabel(tot)}`; };
+    $$("[data-tc]", host).forEach((i) => (i.oninput = sum)); sum();
+    $("#tf").onsubmit = async (e) => {
+      e.preventDefault();
+      const row = { brew_id: brew.id, tasted_on: $("#t_on").value || new Date().toISOString().slice(0, 10), taster: $("#t_by").value, kettle: $("#t_k") ? $("#t_k").value || null : (brew.kettles || [])[0] || null, notes: $("#t_notes").value.trim() || null };
+      let bad = false;
+      T_CATS.forEach(([k, , m]) => { const v = num($(`[data-tc="${k}"]`, host).value); if (v != null && (v < 0 || v > m)) bad = true; row[k] = v == null ? null : Math.round(v); });
+      if (bad) return alert("Een score valt buiten het bereik. Kijk even naar de maxima per onderdeel.");
+      if (T_CATS.every(([k]) => row[k] == null)) return alert("Vul minstens één score in.");
+      const { data, error } = await sb.from("tastings").insert(row).select().single();
+      if (error) return alert(error.message);
+      tastings.push(data); tastings.sort((a, b) => String(a.tasted_on).localeCompare(String(b.tasted_on))); renderTastings();
+    };
+    $$("[data-tdel]", host).forEach((b) => (b.onclick = async () => {
+      if (!confirm("Deze proeving verwijderen?")) return;
+      const { error } = await sb.from("tastings").delete().eq("id", b.dataset.tdel);
+      if (error) return alert(error.message);
+      tastings = tastings.filter((t) => t.id !== b.dataset.tdel); renderTastings();
+    }));
+  }
+
+  /* ---------- Ketelprofielen ---------- */
+  async function viewKettles() {
+    main.innerHTML = `<div class="empty">Ketels ophalen…</div>`;
+    await loadProfiles();
+    if (profilesMissing) {
+      main.innerHTML = `<p><a href="#/" style="color:var(--muted)">← alle brouwsels</a></p><div class="card"><h1>Ketels</h1><div class="msg info">De database kent de ketelprofielen nog niet. Draai eerst de SQL voor ketels en proeven in Supabase.</div></div>`;
+      return;
+    }
+    const { data: brews } = await sb.from("brews").select("*");
+    // gemeten gemiddelden per ketel uit alle brouwsels
+    const stats = {};
+    KETTLES.forEach((k) => (stats[k] = { bh: [], mash: [], boil: [], loss: [] }));
+    (brews || []).forEach((b) => {
+      const ks = Array.isArray(b.kettles) ? b.kettles : [];
+      ks.forEach((k) => {
+        if (!stats[k]) return;
+        const v = (b.kettle_values || {})[k] || {};
+        const rec = ks.length > 1 ? v : Object.assign({}, v, { og: b.og, pre_boil_sg: b.pre_boil_sg, volume_l: b.volume_l });
+        const e = calcEff(rec, b.fermentables, b.boil_min, PROFILES[k]);
+        ["bh", "mash", "boil", "loss"].forEach((x) => { if (e[x] != null && isFinite(e[x]) && e[x] > -50 && e[x] < 150) stats[k][x].push(e[x]); });
+      });
+    });
+    const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    const groups = [...new Set(P_FIELDS.map((f) => f[3]))];
+    main.innerHTML = `
+      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle brouwsels</a></p>
+      <h1 style="margin:0 0 4px">Ketels</h1>
+      <p class="hint" style="margin-top:0">De profielen zijn gevuld met de standaardwaarden uit de Grainfather-app. Meet ze na (zie onderaan) en verfijn ze; de brouwlog vergelijkt elk brouwsel met dit profiel.</p>
+      <div class="grid g2" style="align-items:start">
+        ${KETTLES.map((k, i) => {
+          const p = PROFILES[k] || {}, st = stats[k];
+          const meas = [["bh", "Brouwzaalrendement", "%", "brewhouse_eff"], ["mash", "Maischrendement", "%", "mash_eff"], ["boil", "Verdamping", " L/uur", "boil_loss_lh"], ["loss", "Verlies na koken → vergister", " L", "trub_chiller_loss_l"]];
+          return `<div class="card" style="border-top:5px solid ${KETTLE_COLORS[i % KETTLE_COLORS.length]}">
+            <h2 style="margin-bottom:2px">${esc(k)}</h2><div class="hint" style="margin-bottom:12px">${esc(p.title || "")}${p.brand ? " · " + esc(p.brand) : ""}</div>
+            <div class="msg ok" style="margin-top:0"><b>Gemeten in jullie brouwsels</b><br>
+              ${meas.map(([x, l, u, pk]) => { const m = mean(st[x]); return `${l}: ${m == null ? "<span class='hint'>nog geen data</span>" : `<b>${fmt1(m)}${u}</b> <span class="hint">(${st[x].length}×)</span>`}${m != null && pk ? ` <button type="button" class="linkbtn" data-take="${esc(k)}|${pk}|${Math.round(m * 10) / 10}">overnemen</button>` : ""}`; }).join("<br>")}
+            </div>
+            ${groups.map((g) => `<h3 style="font-family:var(--sans);font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin:16px 0 8px">${g}</h3>
+              <div class="grid g2">${P_FIELDS.filter((f) => f[3] === g).map(([f, l, u, , t]) => `<div class="field"><label>${l}${u ? ` (${u})` : ""}</label>
+                <input data-pf="${esc(k)}|${f}" ${t === "text" ? 'type="text"' : 'inputmode="decimal"'} value="${esc(p[f] ?? "")}"></div>`).join("")}</div>`).join("")}
+            <div class="field"><label>Notities</label><textarea data-pf="${esc(k)}|notes" style="min-height:70px">${esc(p.notes || "")}</textarea></div>
+            <div class="row"><button class="btn" data-psave="${esc(k)}">Profiel opslaan</button><span class="hint" data-pmsg="${esc(k)}"></span></div>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Zo achterhaal je de echte waarden</h2>
+        <ol style="padding-left:20px;line-height:1.7">
+          <li><b>Dode ruimte (maischvat):</b> vul de lege ketel met een afgemeten hoeveelheid water, laat leeglopen via de kraan of pomp tot er niets meer komt en meet wat er achterblijft (giet het eruit in een maatbeker).</li>
+          <li><b>Verdamping per uur:</b> kook een afgemeten hoeveelheid water (bijv. 25 L) precies 60 minuten met hetzelfde vermogen als op brouwdag, laat afkoelen en meet het verschil. Of: vul op brouwdag <i>Volume voor koken</i>, <i>Volume na koken</i> en de <i>Kooktijd</i> in, dan rekent de brouwlog het zelf uit.</li>
+          <li><b>Verlies trub en koeler:</b> meet op brouwdag het volume na koken en het volume dat in de vergister belandt. Het verschil (minus ±4% krimp door afkoelen) is je verlies.</li>
+          <li><b>Rendement:</b> vul per brouwsel OG, SG voor koken en de volumes in (en bij suikers/kandij de opbrengst 100%). Na 3–5 brouwsels geeft het gemiddelde hierboven een betrouwbaar rendement; klik op <i>overnemen</i>.</li>
+          <li><b>Graanabsorptie:</b> hoeveel liter water er per kg mout achterblijft in het graan. Meet: water in − (wort uit + dode ruimte), gedeeld door kg mout. De app-standaard (0,8–1,0 L/kg) is meestal prima.</li>
+          <li><b>Meet altijd op dezelfde manier:</b> SG bij 20 °C (of corrigeer voor temperatuur), en volumes op een vaste plek met een gekalibreerde maatstok of maatstreep.</li>
+        </ol>
+        <p class="hint">Neem de verfijnde waarden daarna ook over in de Grainfather-app, dan kloppen de receptberekeningen daar ook.</p>
+      </div>`;
+    $$("[data-take]", main).forEach((b) => (b.onclick = () => {
+      const [k, f, v] = b.dataset.take.split("|"); const el = $(`[data-pf="${k}|${f}"]`, main); if (el) { el.value = v; el.focus(); }
+    }));
+    $$("[data-psave]", main).forEach((b) => (b.onclick = async () => {
+      const k = b.dataset.psave, prof = {};
+      $$(`[data-pf^="${k}|"]`, main).forEach((el) => {
+        const f = el.dataset.pf.split("|")[1], def = P_FIELDS.find((x) => x[0] === f);
+        prof[f] = !def || def[4] === "text" ? (el.value.trim() || null) : num(el.value);
+      });
+      b.disabled = true;
+      const { error } = await sb.from("kettle_profiles").update({ profile: prof, updated_at: new Date().toISOString() }).eq("name", k);
+      b.disabled = false;
+      $(`[data-pmsg="${k}"]`, main).textContent = error ? "Fout: " + error.message : "Opgeslagen ✓";
+      if (!error) PROFILES[k] = prof;
+    }));
+  }
+
   /* ---------- Brouwsel detail / bewerken ---------- */
   const EMPTY = {
     name: "", style: "", batch_no: "", status: "gepland", brew_date: new Date().toISOString().slice(0, 10), bottle_date: null,
@@ -266,7 +446,7 @@
     og: null, fg: null, pre_boil_sg: null, mash_ph: null, ferment_temp_c: null, priming_g_per_l: null,
     fermentables: [], hops: [], yeast: "", others: [], mash_schedule: "", water_notes: "", process_notes: "",
     tasting_notes: "", rating: null, is_public: false, public_description: "",
-    kettles: [], kettle_values: {}
+    kettles: [], kettle_values: {}, boil_min: null, ferment_schedule: []
   };
   const multi = () => (brew.kettles || []).length >= 2;
   const kv = (k) => { brew.kettle_values = brew.kettle_values || {}; return (brew.kettle_values[k] = brew.kettle_values[k] || {}); };
@@ -287,24 +467,30 @@
     brew.mash_ph = avg("mash_ph"); brew.volume_l = sum("volume_l"); brew.bottled_l = sum("bottled_l");
   }
   const SG_FIELDS = ["target_og", "target_fg", "og", "fg", "pre_boil_sg"];
-  const NUM_FIELDS = ["volume_l", "bottled_l", "target_abv", "ibu", "ebc", "efficiency_pct", "mash_ph", "ferment_temp_c", "priming_g_per_l"];
+  const NUM_FIELDS = ["volume_l", "bottled_l", "target_abv", "ibu", "ebc", "efficiency_pct", "mash_ph", "ferment_temp_c", "priming_g_per_l", "boil_min"];
+  // één ketel: algemene velden + ketelspecifieke volumes samenvoegen
+  const effRec = (k) => (multi() ? kv(k) : Object.assign({}, kv(k), { og: brew.og, fg: brew.fg, pre_boil_sg: brew.pre_boil_sg, volume_l: brew.volume_l, bottled_l: brew.bottled_l }));
 
-  let brew = null, measurements = [], activeTab = "basis";
+  let brew = null, measurements = [], tastings = [], tastingsMissing = false, activeTab = "basis";
 
   async function viewBrew(id) {
     dirty = false;
     if (id) {
       main.innerHTML = `<div class="empty">Brouwsel ophalen…</div>`;
-      const [{ data, error }, m] = await Promise.all([
+      const [{ data, error }, m, tq] = await Promise.all([
         sb.from("brews").select("*").eq("id", id).maybeSingle(),
-        sb.from("measurements").select("*").eq("brew_id", id).order("measured_at")
+        sb.from("measurements").select("*").eq("brew_id", id).order("measured_at"),
+        sb.from("tastings").select("*").eq("brew_id", id).order("tasted_on")
       ]);
+      tastings = (tq && !tq.error && tq.data) || []; tastingsMissing = !!(tq && tq.error);
       if (error || !data) { main.innerHTML = `<div class="msg err">Brouwsel niet gevonden. <a href="#/">Terug</a></div>`; return; }
       brew = data; measurements = m.data || [];
       if (!Array.isArray(brew.kettles)) brew.kettles = [];
       if (!brew.kettle_values || typeof brew.kettle_values !== "object") brew.kettle_values = {};
+      if (!Array.isArray(brew.ferment_schedule)) brew.ferment_schedule = [];
     } else {
-      brew = JSON.parse(JSON.stringify(EMPTY)); measurements = [];
+      brew = JSON.parse(JSON.stringify(EMPTY)); measurements = []; tastings = [];
+      if (KETTLES.length === 1) brew.kettles = [KETTLES[0]];
       activeTab = "basis";
     }
     renderBrew();
@@ -358,6 +544,7 @@
               ${inp("efficiency_pct", "Rendement %", { ph: "72" })}
               ${inp("ibu", "IBU", { ph: "30" })}
               ${inp("ebc", "Kleur (EBC)", { ph: "9" })}
+              ${inp("boil_min", "Kooktijd (min)", { ph: "90" })}
             </div>
           </div>
           <div class="card" id="gemeten"></div>
@@ -377,6 +564,13 @@
             <h2>Water</h2>
             <div class="field"><textarea data-k="water_notes" placeholder="Hoofdgieting / spoelwater, zouten, aanzuren…">${esc(brew.water_notes || "")}</textarea></div>
           </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="row"><h2 style="margin:0">Vergistingsschema</h2><span class="spacer"></span>
+            <button type="button" class="btn small ghost" style="color:var(--red)" data-tpl="belgisch">Sjabloon: Belgisch oplopend</button>
+            <button type="button" class="btn small ghost" style="color:var(--red)" data-tpl="ale">Sjabloon: Ale</button></div>
+          <p class="hint">Stappen na het aanstellen van de gist. Met een brouwdatum zie je wanneer elke stap begint.</p>
+          <div id="ed_ferment_schedule"></div>
         </div>
         <div class="card" style="margin-top:16px"><h2>Brouwdag-notities</h2>
           <div class="field"><textarea data-k="process_notes" placeholder="Wat ging er goed, wat ging er mis, wie had de opener?">${esc(brew.process_notes || "")}</textarea></div>
@@ -403,8 +597,9 @@
       </div>
 
       <div class="pane" data-p="proeven">
+        <div class="card" id="tastingCard" style="margin-bottom:16px"></div>
         <div class="card">
-          <h2>Proefnotities</h2>
+          <h2>Algemene proefnotities</h2>
           <div class="field"><label>Beoordeling</label><div class="rating" id="rating">${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-r="${i}" class="${brew.rating >= i ? "on" : ""}">★</button>`).join("")}</div></div>
           <div class="field"><textarea data-k="tasting_notes" placeholder="Uiterlijk, geur, smaak, mondgevoel, afdronk… en wat de buurman ervan vond.">${esc(brew.tasting_notes || "")}</textarea></div>
         </div>
@@ -454,8 +649,28 @@
     rowsEditor("fermentables", [
       { k: "name", l: "Mout / suiker", ph: "Pilsmout", w: "50%" },
       { k: "kg", l: "kg", ph: "5.5", n: true },
-      { k: "ebc", l: "EBC", ph: "3.5", n: true }
-    ], (rows) => { const t = rows.reduce((s, r) => s + (num(r.kg) || 0), 0); return t ? `Totaal: <b>${fmt1(t)} kg</b>` : ""; });
+      { k: "ebc", l: "EBC", ph: "3.5", n: true },
+      { k: "yield", l: "Opbr. %", ph: "80", n: true }
+    ], (rows) => { const t = rows.reduce((s, r) => s + (num(r.kg) || 0), 0); return t ? `Totaal: <b>${fmt1(t)} kg</b> · opbrengst leeg = 80% (suikers 100%)` : ""; });
+    rowsEditor("ferment_schedule", [
+      { k: "step", l: "Stap", ph: "Primaire vergisting", w: "34%" },
+      { k: "temp_c", l: "Temp °C", ph: "19", n: true },
+      { k: "days", l: "Dagen", ph: "3", n: true },
+      { k: "note", l: "Opmerking", ph: "Daarna vrij laten oplopen" }
+    ], (rows) => {
+      let d = 0; const start = brew.brew_date ? new Date(brew.brew_date) : null;
+      const parts = rows.map((r) => { const at = d; d += num(r.days) || 0; return start && r.step ? `${esc(r.step)}: ${new Date(start.getTime() + at * 864e5).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}` : ""; }).filter(Boolean);
+      return d ? `Totaal <b>${fmt1(d)} dagen</b>${start ? ` · klaar rond <b>${new Date(start.getTime() + d * 864e5).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}</b><br>${parts.join(" · ")}` : ""}` : "";
+    });
+    $$("[data-tpl]", main).forEach((b) => (b.onclick = () => {
+      if (brew.ferment_schedule.length && !confirm("Huidige schema vervangen door het sjabloon?")) return;
+      brew.ferment_schedule = b.dataset.tpl === "belgisch"
+        ? [{ step: "Aanstellen en start", temp_c: 18, days: 2, note: "Rustig beginnen tegen fusels" }, { step: "Vrij laten oplopen", temp_c: 22, days: 3, note: "Gist warmt zelf op" },
+           { step: "Uitgisten", temp_c: 24, days: 7, note: "Tot FG stabiel is (2 dagen gelijk)" }, { step: "Cold crash", temp_c: 2, days: 3, note: "Helderen voor bottelen" }]
+        : [{ step: "Primaire vergisting", temp_c: 19, days: 7, note: "" }, { step: "Diacetylrust", temp_c: 21, days: 3, note: "" }, { step: "Cold crash", temp_c: 2, days: 2, note: "" }];
+      markDirty(); renderBrew(); activeTabTo("recept");
+    }));
+    renderTastings();
     rowsEditor("hops", [
       { k: "name", l: "Hop", ph: "Saaz", w: "34%" },
       { k: "g", l: "gram", ph: "40", n: true },
@@ -517,14 +732,15 @@
           ${inp("mash_ph", "pH maisch", { ph: "5.3" })}
           ${inp("volume_l", "Volume vergister (L)", { ph: "23" })}
           ${inp("bottled_l", "Gebotteld (L)", { ph: "20" })}
+          ${(brew.kettles || []).length === 1 ? VOL_FIELDS.map(([f, l, ph, t]) => { const v = kv(brew.kettles[0])[f]; return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(brew.kettles[0])}|${f}|${t}" value="${v == null ? "" : v}" placeholder="${ph}"></div>`; }).join("") : ""}
           ${extra}
         </div>
-        <p class="hint">Tip: SG mag je ook als <b>1074</b> of <b>74</b> typen.</p>`;
+        <p class="hint">Tip: SG mag je ook als <b>1074</b> of <b>74</b> typen.${(brew.kettles || []).length === 1 ? " Met de volumes voor en na het koken berekent de brouwlog het rendement en de verdamping van de ketel." : ""}</p>`;
     } else {
       host.innerHTML = `<h2>Gemeten per ketel</h2>
         ${brew.kettles.map((k, i) => `<div style="border-left:4px solid ${KETTLE_COLORS[i % KETTLE_COLORS.length]};padding-left:12px;margin-bottom:14px">
           <div style="font-weight:700;margin-bottom:6px">${esc(k)}</div>
-          <div class="grid g3">${K_FIELDS.map(([f, l, ph, t]) => {
+          <div class="grid g3">${K_FIELDS.concat(VOL_FIELDS).map(([f, l, ph, t]) => {
             const v = kv(k)[f];
             return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(k)}|${f}|${t}" value="${v == null ? "" : t === "sg" ? Number(v).toFixed(3) : v}" placeholder="${ph}"></div>`;
           }).join("")}</div></div>`).join("")}
@@ -580,17 +796,20 @@
       k(fg ? "Alcohol" : "Alcohol tot nu", a ? fmt1(a) + "%" : "–", brew.target_abv ? `doel ${fmt1(brew.target_abv)}%` : "") +
       k("Vergistingsgraad", att ? Math.round(att) + "%" : "–", "schijnbaar") +
       k("Volume", brew.volume_l ? fmt1(brew.volume_l) + " L" : "–", brew.bottled_l ? `${fmt1(brew.bottled_l)} L gebotteld` : "");
-    if (multi()) {
+    if ((brew.kettles || []).length) {
       el.innerHTML += `<div class="kpi" style="grid-column:1/-1;background:#fffaf0;color:var(--ink);border:1px solid var(--line)">
-        <small style="color:var(--red)">Per ketel</small>
-        <div class="tablewrap"><table class="list" style="margin-top:4px"><thead><tr><th>Ketel</th><th>OG</th><th>FG / laatste SG</th><th>ABV</th><th>Vergisting</th><th>Volume</th></tr></thead><tbody>
+        <small style="color:var(--red)">${multi() ? "Per ketel" : "Ketel"}</small>
+        <div class="tablewrap"><table class="list" style="margin-top:4px"><thead><tr><th>Ketel</th><th>OG</th><th>FG / laatste SG</th><th>ABV</th><th>Vergisting</th><th>Volume</th><th>Brouwzaalrend.</th><th>Maischrend.</th><th>Verdamping</th></tr></thead><tbody>
         ${brew.kettles.map((kn, i) => {
-          const v = kv(kn);
-          const lm = [...measurements].reverse().find((m) => m.sg && m.kettle === kn);
+          const v = effRec(kn), prof = PROFILES[kn] || {};
+          const lm = [...measurements].reverse().find((m) => m.sg && (!multi() || m.kettle === kn));
           const c = v.fg || (lm && lm.sg) || null;
           const a2 = abv(v.og, c), t2 = attenuation(v.og, c);
+          const e = calcEff(v, brew.fermentables, brew.boil_min, prof);
+          const vs = (val, ref, unit) => val == null ? "–" : `${fmt1(val)}${unit}${ref != null && ref !== "" ? ` <span class="hint">(profiel ${fmt1(num(ref))})</span>` : ""}`;
           return `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KETTLE_COLORS[i % KETTLE_COLORS.length]};margin-right:6px"></span><b>${esc(kn)}</b></td>
-            <td>${fmtSG(v.og)}</td><td>${fmtSG(c)}${!v.fg && c ? ' <span class="hint">(meting)</span>' : ""}</td><td>${a2 ? fmt1(a2) + "%" : "–"}</td><td>${t2 ? Math.round(t2) + "%" : "–"}</td><td>${v.volume_l ? fmt1(v.volume_l) + " L" : "–"}</td></tr>`;
+            <td>${fmtSG(v.og)}</td><td>${fmtSG(c)}${!v.fg && c ? ' <span class="hint">(meting)</span>' : ""}</td><td>${a2 ? fmt1(a2) + "%" : "–"}</td><td>${t2 ? Math.round(t2) + "%" : "–"}</td><td>${v.volume_l ? fmt1(v.volume_l) + " L" : "–"}</td>
+            <td>${vs(e.bh, prof.brewhouse_eff, "%")}</td><td>${vs(e.mash, prof.mash_eff, "%")}</td><td>${vs(e.boil, prof.boil_loss_lh, " L/u")}</td></tr>`;
         }).join("")}</tbody></table></div></div>`;
     }
   }
@@ -611,7 +830,7 @@
     const { data, error } = await q;
     btn.disabled = false;
     if (error) {
-      const m = /kettle/i.test(error.message) ? "De database kent de ketels nog niet. Draai eerst de ketel-SQL in Supabase (zie chat/LEESMIJ)." : error.message;
+      const m = /kettle|boil_min|ferment_schedule|schema cache/i.test(error.message) ? "De database mist nog kolommen. Draai eerst de SQL voor ketels en proeven in Supabase. (" + error.message + ")" : error.message;
       $("#saveMsg").innerHTML = `<span style="color:#a33">Fout: ${esc(m)}</span>`; return;
     }
     const wasNew = !brew.id;
