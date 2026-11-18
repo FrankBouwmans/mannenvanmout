@@ -260,3 +260,9 @@ body.dicht{overflow:hidden}
 .nietgevonden h1{font-size:clamp(1.8rem,4vw,2.6rem);color:var(--cream)}
 .nietgevonden p{max-width:52ch;font-size:1.15rem}
 .nietgevonden .knoppen{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+
+/* naar boven, ankers onder de vaste menubalk, iconen */
+section,[id]{scroll-margin-top:72px}
+.btn .icon{flex-shrink:0;margin:-2px 0}
+.proost-glazen{display:block;margin:6px auto 0}
+.banner .proost{font-family:var(--display);font-size:1.6rem;color:var(--cream);margin:4px 0 0;letter-spacing:1px}

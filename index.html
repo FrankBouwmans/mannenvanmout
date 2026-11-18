@@ -25,13 +25,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Inter:wght@400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
 <nav class="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><img class="hop" src="assets/hop.svg" alt="">Mannen van Mout</a>
+    <a class="brand" href="#" id="naarBoven"><img class="hop" src="assets/hop.svg" alt="">Mannen van Mout</a>
     <ul>
       <li><a href="#verhaal">Ons verhaal</a></li>
       <li><a href="#brouwers">De brouwers</a></li>
@@ -42,14 +42,14 @@
   </div>
 </nav>
 
-<header class="hero" id="top">
+<header class="hero">
   <div class="wrap">
     <div>
       <div class="kicker">Thuisbrouwerij · sinds de eerste kater</div>
       <h1>Mannen van Mout <span>Vier brouwers, één passie</span></h1>
       <p class="lead">Twee ketels, één tuin en een onverklaarbare hoeveelheid lege flessen. Wij brouwen bieren met karakter, van Belgisch blond tot wat er ook maar in ons opkomt.</p>
       <div class="cta">
-        <a class="btn" href="#bieren">🍺 Bekijk onze bieren</a>
+        <a class="btn" href="#bieren"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h11v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M16 11.5h1.5a2.5 2.5 0 0 1 2.5 2.5v1a2.5 2.5 0 0 1-2.5 2.5H16"/><path d="M5 9a2.6 2.6 0 0 1 1.8-4.4A3.3 3.3 0 0 1 12.6 3.6 2.7 2.7 0 0 1 16 9"/><path d="M9 13v4.5M12 13v4.5"/></svg>Bekijk onze bieren</a>
         <a class="btn ghost" href="#brouwers">Wie zijn die mannen?</a>
       </div>
     </div>
@@ -134,7 +134,22 @@
 <div class="banner">
   <div class="wrap">
     <h2>Vier brouwers, één passie</h2>
-    <p>Proost! 🍻</p>
+    <svg class="proost-glazen" viewBox="0 0 160 110" width="170" height="117" role="img" aria-label="Twee proostende bierglazen">
+      <defs><clipPath id="kelk"><path d="M40 20 C38 46 43 60 55 66 L65 66 C77 60 82 46 80 20 Z"/></clipPath></defs>
+      <g transform="translate(-18 6) rotate(14 60 94)">
+        <g clip-path="url(#kelk)"><rect x="30" y="31" width="60" height="40" fill="#e0a63a"/><path d="M30 18 Q40 12 50 18 Q60 11 70 17 Q80 11 90 18 V33 H30 Z" fill="#fbf1dc"/></g>
+        <g fill="none" stroke="#f5e6c8" stroke-width="3" stroke-linejoin="round"><path d="M40 20 C38 46 43 60 55 66 L56 86 C56 89 52 91 46 92 L74 92 C68 91 64 89 64 86 L65 66 C77 60 82 46 80 20 Z"/></g>
+        <path d="M50 44 l0 12 M58 40 l0 8" stroke="#fff6e0" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+      </g>
+      <g transform="translate(178 6) scale(-1 1) rotate(14 60 94)">
+        <g clip-path="url(#kelk)"><rect x="30" y="31" width="60" height="40" fill="#e0a63a"/><path d="M30 18 Q40 12 50 18 Q60 11 70 17 Q80 11 90 18 V33 H30 Z" fill="#fbf1dc"/></g>
+        <g fill="none" stroke="#f5e6c8" stroke-width="3" stroke-linejoin="round"><path d="M40 20 C38 46 43 60 55 66 L56 86 C56 89 52 91 46 92 L74 92 C68 91 64 89 64 86 L65 66 C77 60 82 46 80 20 Z"/></g>
+        <path d="M50 44 l0 12 M58 40 l0 8" stroke="#fff6e0" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+      </g>
+      <g stroke="#f3c66a" stroke-width="3" stroke-linecap="round"><path d="M80 14 V4"/><path d="M70 17 L63 9"/><path d="M90 17 L97 9"/></g>
+      <g fill="#fbf1dc"><circle cx="72" cy="27" r="2.5"/><circle cx="88" cy="25" r="2"/><circle cx="80" cy="22" r="1.8"/></g>
+    </svg>
+    <p class="proost">Proost!</p>
   </div>
 </div>
 
@@ -146,7 +161,7 @@
 
 <script src="config.js?v=11"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="site.js?v=9"></script>
+<script src="site.js?v=12"></script>
 <script src="leeftijd.js?v=11"></script>
 </body>
 </html>

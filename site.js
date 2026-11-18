@@ -5,6 +5,14 @@
 
   document.getElementById("year").textContent = new Date().getFullYear();
 
+  // logo: helemaal naar boven, zonder #-rommel in de adresbalk
+  const top = document.getElementById("naarBoven");
+  if (top) top.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    history.replaceState(null, "", location.pathname + location.search);
+  });
+
   // Brouwers: kwartetkaarten (klik = omdraaien)
   const crew = document.getElementById("crew");
   crew.innerHTML = (cfg.brewers || []).map((b, i) => `
