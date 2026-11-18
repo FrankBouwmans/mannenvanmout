@@ -5,14 +5,32 @@
 
   document.getElementById("year").textContent = new Date().getFullYear();
 
-  // Brouwers
-  document.getElementById("crew").innerHTML = (cfg.brewers || []).map((b) => `
-    <article class="brewer">
-      <img src="${esc(b.photo)}" alt="${esc(b.name)}" loading="lazy">
-      <div class="role">${esc(b.role)}</div>
-      <h3>${esc(b.name)}</h3>
-      <p>“${esc(b.quote)}”</p>
-    </article>`).join("");
+  // Brouwers: kwartetkaarten (klik = omdraaien)
+  const crew = document.getElementById("crew");
+  crew.innerHTML = (cfg.brewers || []).map((b, i) => `
+    <button type="button" class="kaart" aria-pressed="false" aria-label="Kwartetkaart van ${esc(b.name)}, klik om om te draaien">
+      <span class="kaart-in">
+        <span class="kaart-voor">
+          <span class="kaart-kop"><b>${esc(b.code || "A" + (i + 1))}</b><small>Mannen van Mout</small></span>
+          <img src="${esc(b.photo)}" alt="" loading="lazy">
+          <span class="role">${esc(b.role)}</span>
+          <span class="naam">${esc(b.name)}</span>
+          <span class="quote">“${esc(b.quote)}”</span>
+          <span class="tip">Klik voor stats</span>
+        </span>
+        <span class="kaart-achter">
+          <span class="kaart-kop"><b>${esc(b.code || "A" + (i + 1))}</b><small>${esc(b.name)}</small></span>
+          ${(b.stats || []).map(([l, v]) => `
+            <span class="kstat"><span class="kstat-l"><span>${esc(l)}</span><span>${Number(v)}/10</span></span>
+            <span class="balk"><span style="width:${Math.max(0, Math.min(10, Number(v))) * 10}%"></span></span></span>`).join("")}
+          ${b.power ? `<span class="kracht"><small>Superkracht</small>${esc(b.power)}</span>` : ""}
+        </span>
+      </span>
+    </button>`).join("");
+  crew.querySelectorAll(".kaart").forEach((k) => k.addEventListener("click", () => {
+    const on = k.classList.toggle("om");
+    k.setAttribute("aria-pressed", on ? "true" : "false");
+  }));
 
   // Bieren
   const hop = `<img src="assets/hop.svg" alt="" style="width:70px;opacity:.7">`;

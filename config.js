@@ -22,27 +22,65 @@ window.MVM_CONFIG = {
       name: "Marco K",
       role: "De Roerganger",
       photo: "assets/brouwer1.jpg",
-      quote: "Niemand roert de maisch zoals hij. Zegt hij zelf."
+      quote: "Niemand roert de maisch zoals hij. Zegt hij zelf.",
+      code: "A1",
+      stats: [["Moutdraaier", 10], ["Roerkracht", 9], ["Technicus", 8]],   // [eigenschap, score 0-10]
+      power: "Roert negentig minuten zonder één keer te klagen."
     },
     {
       name: "Tom K",
       role: "De Receptengoeroe",
       photo: "assets/brouwer2.jpg",
-      quote: "Heeft voor elk bier een spreadsheet. En voor elke spreadsheet een bier."
+      quote: "Heeft voor elk bier een spreadsheet. En voor elke spreadsheet een bier.",
+      code: "A2",
+      stats: [["Brouwmeester", 10], ["Vergistexpert", 9], ["Meetkundige", 8]],   // [eigenschap, score 0-10]
+      power: "Weet het alcoholpercentage al voordat de ketel aan staat."
     },
     {
       name: "Marco S",
       role: "De Kwaliteitscontroleur",
       photo: "assets/brouwer3.jpg",
-      quote: "Proeft elke batch. Meerdere keren. Voor de zekerheid."
+      quote: "Proeft elke batch. Meerdere keren. Voor de zekerheid.",
+      code: "A3",
+      stats: [["Proefcapaciteit", 10], ["Afwegingexpert", 9], ["Neus", 8]],   // [eigenschap, score 0-10]
+      power: "Keurt elk glas. Daarna nog een keer."
     },
     {
       name: "Frank B",
       role: "De Hopfluisteraar",
       photo: "assets/brouwer4.jpg",
-      quote: "Ruikt één keer aan een hopbel en noemt het alfazuur. Zegt hij."
+      quote: "Ruikt één keer aan een hopbel en noemt het alfazuur. Zegt hij.",
+      code: "A4",
+      stats: [["Brouwervaring", 10], ["Neus voor aroma", 9], ["Chef analyse", 8]],   // [eigenschap, score 0-10]
+      power: "Bracht de tweede ketel mee en verdubbelde zo de brouwerij."
     }
   ],
+
+  /* --- 4. Quiz "Welke Moutman ben jij?" (quiz.html) ----------------------
+     Elke vraag heeft precies 4 antwoorden. Antwoord 1 telt voor de 1e
+     brouwer hierboven (Marco K), antwoord 2 voor de 2e (Tom K), enz.
+     De uitslag is de brouwer met de meeste punten.
+     LET OP: dit zijn tijdelijke demo-vragen. */
+  quiz: {
+    results: [
+      "Geen maisch zonder jouw spierkracht. Jij praat niet over brouwen, jij roert.",
+      "Bij jou klopt alles tot op de derde decimaal. Jij hebt het recept al drie keer nagerekend voordat de rest wakker is.",
+      "Geen bier verlaat de tuin zonder jouw goedkeuring. En die geef je pas na het tweede glas.",
+      "Jij ruikt de hop al voordat de zak open is. Bij twijfel: meer hop."
+    ],
+    questions: [
+      { q: "Het is brouwdag. Wat doe jij als eerste?",
+        a: ["Mouwen opstropen en de roerspaan pakken", "Het recept nog één keer narekenen", "Alvast een glas klaarzetten, om te testen", "Met je neus in de hopzak"] },
+      { q: "Wat is jouw favoriete gereedschap?",
+        a: ["De roerspaan", "Een spreadsheet met formules", "Het proefglas", "Een zak verse hopbellen"] },
+      { q: "Er gaat iets mis tijdens het brouwen. Jij…",
+        a: ["…roert gewoon wat harder", "…zoekt de oorzaak in de cijfers", "…proeft of het nog te redden is", "…zegt: meer hop lost alles op"] },
+      { q: "Wat neem je mee naar een verjaardag?",
+        a: ["Spierpijn van de vorige brouwdag", "Een uitgeprint recept", "Een eerlijke mening over het bier", "Een zakje hop, als cadeau"] },
+      { q: "Jouw ideale bier is…",
+        a: ["…eerlijk zwoegwerk", "…precies zoals het recept zegt", "…perfect in balans", "…zo hoppig dat je ogen tranen"] }
+    ]
+  },
 
   /* --- 3. Vaste bieren op de homepage ------------------------------------
      Deze staan er altijd. Bieren die je in het inloggedeelte op
