@@ -11,6 +11,10 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   const STATUSES = ["gepland", "vergisting", "lagering", "gebotteld", "op"];
+  const KETTLES = (cfg.kettles && cfg.kettles.length ? cfg.kettles : ["Brewmonk", "Grainfather"]);
+  const KETTLE_COLORS = ["#7d1d1d", "#4f6b26", "#1c5378", "#b36b00"];
+  const K_FIELDS = [["og", "Begin-SG (OG)", "1.074", "sg"], ["fg", "Eind-SG (FG)", "1.009", "sg"], ["pre_boil_sg", "SG voor koken", "1.062", "sg"],
+    ["mash_ph", "pH maisch", "5.3", "num"], ["volume_l", "Volume vergister (L)", "23", "num"], ["bottled_l", "Gebotteld (L)", "20", "num"]];
   const HOP_USES = ["Koken", "Whirlpool", "Dryhop", "First wort", "Maischen"];
 
   /* ---------- rekenwerk ---------- */
@@ -155,7 +159,7 @@
     main.innerHTML = `<div class="empty">Brouwsels ophalen…</div>`;
     const [{ data: me }, { data, error }] = await Promise.all([
       sb.from("members").select("email").limit(1),
-      sb.from("brews").select("id,name,style,batch_no,status,brew_date,bottle_date,og,fg,abv,target_og,target_fg,is_public,rating,updated_at").order("brew_date", { ascending: false, nullsFirst: true })
+      sb.from("brews").select("*").order("brew_date", { ascending: false, nullsFirst: true })
     ]);
     if (error) { main.innerHTML = `<div class="msg err">Fout bij ophalen: ${esc(error.message)}</div>`; return; }
     if (!me || me.length === 0) {
@@ -187,6 +191,7 @@
       <div class="row"><span class="badge ${b.status}">${esc(b.status)}</span>${b.is_public ? `<span class="badge pub">publiek</span>` : ""}<span class="spacer"></span>${b.rating ? "★".repeat(b.rating) : ""}</div>
       <h3 style="margin-top:8px">${esc(b.name)}</h3>
       <div class="sub">${esc(b.style || "")}${b.batch_no ? ` · batch ${esc(b.batch_no)}` : ""}${b.brew_date ? ` · ${fmtDate(b.brew_date)}` : ""}</div>
+      ${(b.kettles || []).length ? `<div class="sub" style="margin-top:4px">Ketel: ${(b.kettles || []).map(esc).join(" + ")}</div>` : ""}
       <div class="stats">
         <span class="stat">OG <b>${fmtSG(b.og)}</b></span>
         <span class="stat">FG <b>${fmtSG(b.fg)}</b></span>
@@ -260,8 +265,27 @@
     volume_l: null, bottled_l: null, target_og: null, target_fg: null, target_abv: null, ibu: null, ebc: null, efficiency_pct: null,
     og: null, fg: null, pre_boil_sg: null, mash_ph: null, ferment_temp_c: null, priming_g_per_l: null,
     fermentables: [], hops: [], yeast: "", others: [], mash_schedule: "", water_notes: "", process_notes: "",
-    tasting_notes: "", rating: null, is_public: false, public_description: ""
+    tasting_notes: "", rating: null, is_public: false, public_description: "",
+    kettles: [], kettle_values: {}
   };
+  const multi = () => (brew.kettles || []).length >= 2;
+  const kv = (k) => { brew.kettle_values = brew.kettle_values || {}; return (brew.kettle_values[k] = brew.kettle_values[k] || {}); };
+  // gecombineerde waarden van meerdere ketels (SG gewogen naar volume)
+  function combineKettles() {
+    if (!multi()) return;
+    const rows = brew.kettles.map((k) => kv(k));
+    const wavg = (f) => {
+      const xs = rows.filter((r) => r[f]);
+      if (!xs.length) return null;
+      const w = xs.every((r) => r.volume_l) ? xs.map((r) => Number(r.volume_l)) : xs.map(() => 1);
+      const t = w.reduce((a, b) => a + b, 0);
+      return Math.round((xs.reduce((a, r, i) => a + Number(r[f]) * w[i], 0) / t) * 1000) / 1000;
+    };
+    const sum = (f) => { const xs = rows.filter((r) => r[f] != null); return xs.length ? Math.round(xs.reduce((a, r) => a + Number(r[f]), 0) * 10) / 10 : null; };
+    const avg = (f) => { const xs = rows.filter((r) => r[f] != null); return xs.length ? Math.round((xs.reduce((a, r) => a + Number(r[f]), 0) / xs.length) * 100) / 100 : null; };
+    brew.og = wavg("og"); brew.fg = wavg("fg"); brew.pre_boil_sg = wavg("pre_boil_sg");
+    brew.mash_ph = avg("mash_ph"); brew.volume_l = sum("volume_l"); brew.bottled_l = sum("bottled_l");
+  }
   const SG_FIELDS = ["target_og", "target_fg", "og", "fg", "pre_boil_sg"];
   const NUM_FIELDS = ["volume_l", "bottled_l", "target_abv", "ibu", "ebc", "efficiency_pct", "mash_ph", "ferment_temp_c", "priming_g_per_l"];
 
@@ -277,6 +301,8 @@
       ]);
       if (error || !data) { main.innerHTML = `<div class="msg err">Brouwsel niet gevonden. <a href="#/">Terug</a></div>`; return; }
       brew = data; measurements = m.data || [];
+      if (!Array.isArray(brew.kettles)) brew.kettles = [];
+      if (!brew.kettle_values || typeof brew.kettle_values !== "object") brew.kettle_values = {};
     } else {
       brew = JSON.parse(JSON.stringify(EMPTY)); measurements = [];
       activeTab = "basis";
@@ -316,6 +342,11 @@
             ${inp("brew_date", "Brouwdatum", { type: "date" })}
             ${inp("bottle_date", "Botteldatum", { type: "date" })}
           </div>
+          <div class="field" style="margin-bottom:0"><label>Ketel(s)</label>
+            <div class="row" id="kettlePick">${KETTLES.map((k) => `<label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);font-weight:600;margin:0 14px 0 0">
+              <input type="checkbox" data-kettle="${esc(k)}" style="width:auto" ${(brew.kettles || []).includes(k) ? "checked" : ""}> ${esc(k)}</label>`).join("")}</div>
+            <p class="hint" style="margin:6px 0 0">Gebruik je beide ketels voor één brouwsel? Vink ze allebei aan, dan registreer je de SG-waarden per ketel.</p>
+          </div>
         </div>
         <div class="grid g2" style="margin-top:16px">
           <div class="card">
@@ -329,20 +360,7 @@
               ${inp("ebc", "Kleur (EBC)", { ph: "9" })}
             </div>
           </div>
-          <div class="card">
-            <h2>Gemeten</h2>
-            <div class="grid g2">
-              ${inp("og", "Begin-SG (OG)", { ph: "1.074" })}
-              ${inp("fg", "Eind-SG (FG)", { ph: "1.009" })}
-              ${inp("pre_boil_sg", "SG voor koken", { ph: "1.062" })}
-              ${inp("mash_ph", "pH maisch", { ph: "5.3" })}
-              ${inp("volume_l", "Volume vergister (L)", { ph: "23" })}
-              ${inp("bottled_l", "Gebotteld (L)", { ph: "20" })}
-              ${inp("ferment_temp_c", "Vergistingstemp. °C", { ph: "20" })}
-              ${inp("priming_g_per_l", "Bottelsuiker g/L", { ph: "7" })}
-            </div>
-            <p class="hint">Tip: SG mag je ook als <b>1074</b> of <b>74</b> typen.</p>
-          </div>
+          <div class="card" id="gemeten"></div>
         </div>
       </div>
 
@@ -374,6 +392,8 @@
             <div class="field"><label>SG</label><input id="m_sg" inputmode="decimal" placeholder="1.032"></div>
             <div class="field"><label>Temp °C</label><input id="m_t" inputmode="decimal" placeholder="19.5"></div>
             <div class="field"><label>pH</label><input id="m_ph" inputmode="decimal" placeholder=""></div>
+            <div class="field" id="m_kettle_wrap" style="grid-column:1/-1;${multi() ? "" : "display:none"}"><label>Ketel</label>
+              <div class="row">${(brew.kettles || []).map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join("")}</div></div>
             <div class="field" style="grid-column:1/-2"><label>Opmerking</label><input id="m_note" type="text" placeholder="Krausen ingezakt, ruikt naar banaan…"></div>
             <div class="field"><button class="btn" style="width:100%;justify-content:center">＋ Meting</button></div>
           </form>
@@ -412,21 +432,20 @@
     showTab(activeTab);
 
     // velden binden
-    $$("[data-k]", main).forEach((el) => {
-      const k = el.dataset.k;
-      const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
-      el.addEventListener(ev, () => {
-        let v = el.type === "checkbox" ? el.checked : el.value;
-        if (SG_FIELDS.includes(k)) v = parseSG(v);
-        else if (NUM_FIELDS.includes(k)) v = num(v);
-        else if (el.type === "date") v = v || null;
-        brew[k] = v; markDirty();
-        if (k === "name") $("#title").textContent = v || "Nieuw brouwsel";
-        if (k === "status") { const b = $("#statBadge"); b.textContent = v; b.className = "badge " + v; }
-        drawKpis();
-      });
-      if (SG_FIELDS.includes(k)) el.addEventListener("blur", () => { if (brew[k]) el.value = Number(brew[k]).toFixed(3); });
-    });
+    bindFields(main);
+    renderGemeten();
+    $$("[data-kettle]", main).forEach((c) => (c.onchange = () => {
+      brew.kettles = KETTLES.filter((k) => $(`[data-kettle="${k}"]`, main).checked);
+      if (multi()) {
+        // eerste keer naar meerdere ketels: huidige waarden overnemen in de eerste ketel
+        const first = kv(brew.kettles[0]);
+        if (!Object.values(first).some((x) => x != null)) K_FIELDS.forEach(([f]) => { if (brew[f] != null) first[f] = brew[f]; });
+        combineKettles();
+      }
+      markDirty(); renderGemeten(); drawKpis();
+      const w = $("#m_kettle_wrap");
+      if (w) { w.style.display = multi() ? "" : "none"; w.querySelector(".row").innerHTML = brew.kettles.map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join(""); }
+    }));
     $$("#rating button").forEach((b) => (b.onclick = () => {
       const r = Number(b.dataset.r); brew.rating = brew.rating === r ? null : r;
       $$("#rating button").forEach((x) => x.classList.toggle("on", brew.rating >= Number(x.dataset.r))); markDirty();
@@ -458,6 +477,67 @@
       drawMeasurements();
     }
     drawKpis();
+  }
+
+  function bindFields(root) {
+    $$("[data-k]", root).forEach((el) => {
+      const k = el.dataset.k;
+      const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
+      el.addEventListener(ev, () => {
+        let v = el.type === "checkbox" ? el.checked : el.value;
+        if (SG_FIELDS.includes(k)) v = parseSG(v);
+        else if (NUM_FIELDS.includes(k)) v = num(v);
+        else if (el.type === "date") v = v || null;
+        brew[k] = v; markDirty();
+        if (k === "name") $("#title").textContent = v || "Nieuw brouwsel";
+        if (k === "status") { const b = $("#statBadge"); b.textContent = v; b.className = "badge " + v; }
+        drawKpis();
+      });
+      if (SG_FIELDS.includes(k)) el.addEventListener("blur", () => { if (brew[k]) el.value = Number(brew[k]).toFixed(3); });
+    });
+    $$("[data-kk]", root).forEach((el) => {
+      const [k, f, type] = el.dataset.kk.split("|");
+      el.addEventListener("input", () => {
+        kv(k)[f] = type === "sg" ? parseSG(el.value) : num(el.value);
+        combineKettles(); markDirty(); drawKpis(); drawCombined();
+      });
+      if (type === "sg") el.addEventListener("blur", () => { const v = kv(k)[f]; if (v) el.value = Number(v).toFixed(3); });
+    });
+  }
+
+  function renderGemeten() {
+    const host = $("#gemeten"); if (!host) return;
+    const extra = `${inp("ferment_temp_c", "Vergistingstemp. °C", { ph: "20" })}${inp("priming_g_per_l", "Bottelsuiker g/L", { ph: "7" })}`;
+    if (!multi()) {
+      host.innerHTML = `<h2>Gemeten${brew.kettles && brew.kettles.length ? ` <span class="hint" style="font-family:var(--sans)">· ${esc(brew.kettles[0])}</span>` : ""}</h2>
+        <div class="grid g2">
+          ${inp("og", "Begin-SG (OG)", { ph: "1.074" })}
+          ${inp("fg", "Eind-SG (FG)", { ph: "1.009" })}
+          ${inp("pre_boil_sg", "SG voor koken", { ph: "1.062" })}
+          ${inp("mash_ph", "pH maisch", { ph: "5.3" })}
+          ${inp("volume_l", "Volume vergister (L)", { ph: "23" })}
+          ${inp("bottled_l", "Gebotteld (L)", { ph: "20" })}
+          ${extra}
+        </div>
+        <p class="hint">Tip: SG mag je ook als <b>1074</b> of <b>74</b> typen.</p>`;
+    } else {
+      host.innerHTML = `<h2>Gemeten per ketel</h2>
+        ${brew.kettles.map((k, i) => `<div style="border-left:4px solid ${KETTLE_COLORS[i % KETTLE_COLORS.length]};padding-left:12px;margin-bottom:14px">
+          <div style="font-weight:700;margin-bottom:6px">${esc(k)}</div>
+          <div class="grid g3">${K_FIELDS.map(([f, l, ph, t]) => {
+            const v = kv(k)[f];
+            return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(k)}|${f}|${t}" value="${v == null ? "" : t === "sg" ? Number(v).toFixed(3) : v}" placeholder="${ph}"></div>`;
+          }).join("")}</div></div>`).join("")}
+        <div id="combined" class="msg info" style="margin-top:0"></div>
+        <div class="grid g2">${extra}</div>
+        <p class="hint">Het totaal (SG gewogen naar volume) wordt gebruikt voor de ABV op de site.</p>`;
+      drawCombined();
+    }
+    bindFields(host);
+  }
+  function drawCombined() {
+    const el = $("#combined"); if (!el) return;
+    el.innerHTML = `<b>Totaal:</b> OG ${fmtSG(brew.og)} · FG ${fmtSG(brew.fg)} · ${brew.og && brew.fg ? fmt1(abv(brew.og, brew.fg)) + "% ABV" : "ABV –"} · ${brew.volume_l ? fmt1(brew.volume_l) + " L" : "– L"}${brew.bottled_l ? ` · ${fmt1(brew.bottled_l)} L gebotteld` : ""}`;
   }
 
   function markDirty() { dirty = true; const m = $("#saveMsg"); if (m) m.textContent = "Niet-opgeslagen wijzigingen"; }
@@ -500,6 +580,19 @@
       k(fg ? "Alcohol" : "Alcohol tot nu", a ? fmt1(a) + "%" : "–", brew.target_abv ? `doel ${fmt1(brew.target_abv)}%` : "") +
       k("Vergistingsgraad", att ? Math.round(att) + "%" : "–", "schijnbaar") +
       k("Volume", brew.volume_l ? fmt1(brew.volume_l) + " L" : "–", brew.bottled_l ? `${fmt1(brew.bottled_l)} L gebotteld` : "");
+    if (multi()) {
+      el.innerHTML += `<div class="kpi" style="grid-column:1/-1;background:#fffaf0;color:var(--ink);border:1px solid var(--line)">
+        <small style="color:var(--red)">Per ketel</small>
+        <div class="tablewrap"><table class="list" style="margin-top:4px"><thead><tr><th>Ketel</th><th>OG</th><th>FG / laatste SG</th><th>ABV</th><th>Vergisting</th><th>Volume</th></tr></thead><tbody>
+        ${brew.kettles.map((kn, i) => {
+          const v = kv(kn);
+          const lm = [...measurements].reverse().find((m) => m.sg && m.kettle === kn);
+          const c = v.fg || (lm && lm.sg) || null;
+          const a2 = abv(v.og, c), t2 = attenuation(v.og, c);
+          return `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KETTLE_COLORS[i % KETTLE_COLORS.length]};margin-right:6px"></span><b>${esc(kn)}</b></td>
+            <td>${fmtSG(v.og)}</td><td>${fmtSG(c)}${!v.fg && c ? ' <span class="hint">(meting)</span>' : ""}</td><td>${a2 ? fmt1(a2) + "%" : "–"}</td><td>${t2 ? Math.round(t2) + "%" : "–"}</td><td>${v.volume_l ? fmt1(v.volume_l) + " L" : "–"}</td></tr>`;
+        }).join("")}</tbody></table></div></div>`;
+    }
   }
 
   function payload() {
@@ -512,11 +605,15 @@
   async function save() {
     if (!brew.name || !brew.name.trim()) { activeTabTo("basis"); alert("Geef het brouwsel eerst een naam."); return; }
     const btn = $("#save"); btn.disabled = true; $("#saveMsg").textContent = "Opslaan…";
+    combineKettles();
     const p = payload();
     const q = brew.id ? sb.from("brews").update(p).eq("id", brew.id).select().single() : sb.from("brews").insert(p).select().single();
     const { data, error } = await q;
     btn.disabled = false;
-    if (error) { $("#saveMsg").innerHTML = `<span style="color:#a33">Fout: ${esc(error.message)}</span>`; return; }
+    if (error) {
+      const m = /kettle/i.test(error.message) ? "De database kent de ketels nog niet. Draai eerst de ketel-SQL in Supabase (zie chat/LEESMIJ)." : error.message;
+      $("#saveMsg").innerHTML = `<span style="color:#a33">Fout: ${esc(m)}</span>`; return;
+    }
     const wasNew = !brew.id;
     brew = data; dirty = false;
     if (wasNew) { location.hash = "#/b/" + data.id; return; } // laadt opnieuw
@@ -537,7 +634,7 @@
     const copy = JSON.parse(JSON.stringify(brew));
     ["id", "created_at", "updated_at", "created_by", "abv"].forEach((k) => delete copy[k]);
     Object.assign(copy, { og: null, fg: null, pre_boil_sg: null, mash_ph: null, bottled_l: null, bottle_date: null, tasting_notes: "", rating: null,
-      is_public: false, status: "gepland", brew_date: new Date().toISOString().slice(0, 10), batch_no: "" });
+      is_public: false, status: "gepland", brew_date: new Date().toISOString().slice(0, 10), batch_no: "", kettle_values: {} });
     brew = copy; measurements = []; activeTab = "basis";
     history.replaceState(null, "", "#/nieuw");
     renderBrew(); markDirty();
@@ -553,12 +650,18 @@
       sg: parseSG($("#m_sg").value), temp_c: num($("#m_t").value), ph: num($("#m_ph").value),
       note: $("#m_note").value.trim() || null
     };
+    if (multi()) { const r = $('input[name="m_kettle"]:checked'); row.kettle = r ? r.value : null; }
+    else if ((brew.kettles || []).length === 1) row.kettle = brew.kettles[0];
     if (row.sg === null && row.temp_c === null && row.ph === null && !row.note) return;
     const { data, error } = await sb.from("measurements").insert(row).select().single();
-    if (error) return alert(error.message);
+    if (error) return alert(/kettle/i.test(error.message) ? "De database kent de ketels nog niet. Draai eerst de ketel-SQL in Supabase." : error.message);
     measurements.push(data); measurements.sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at));
     // eerste SG-meting = OG als die nog leeg is
-    if (!brew.og && data.sg && measurements.filter((m) => m.sg).length === 1) {
+    if (multi() && data.kettle) {
+      if (!kv(data.kettle).og && data.sg && measurements.filter((m) => m.sg && m.kettle === data.kettle).length === 1) {
+        kv(data.kettle).og = data.sg; combineKettles(); renderGemeten(); markDirty();
+      }
+    } else if (!brew.og && data.sg && measurements.filter((m) => m.sg).length === 1) {
       brew.og = data.sg; const f = $("#f_og"); if (f) f.value = data.sg.toFixed(3); markDirty();
     }
     ["m_sg", "m_t", "m_ph", "m_note"].forEach((id) => ($("#" + id).value = ""));
@@ -575,22 +678,28 @@
     const host = $("#mlist"); if (!host) return;
     const t = $(`#tabs button[data-t="metingen"]`); if (t) t.textContent = "Metingen" + (measurements.length ? ` (${measurements.length})` : "");
     if (!measurements.length) { host.innerHTML = `<p class="hint">Nog geen metingen. Pak de hydrometer of refractometer!</p>`; $("#chart").innerHTML = ""; return; }
-    const og = brew.og || (measurements.find((m) => m.sg) || {}).sg;
-    host.innerHTML = `<div class="tablewrap"><table class="list"><thead><tr><th>Wanneer</th><th>SG</th><th>°P</th><th>ABV</th><th>°C</th><th>pH</th><th>Opmerking</th><th></th></tr></thead><tbody>
-      ${measurements.map((m) => `<tr><td>${fmtDateTime(m.measured_at)}</td><td><b>${fmtSG(m.sg)}</b></td><td>${m.sg ? fmt1(plato(m.sg)) : ""}</td>
+    const ogFor = (m) => (multi() && m.kettle && kv(m.kettle).og) || brew.og || (measurements.find((x) => x.sg && (!multi() || x.kettle === m.kettle)) || {}).sg;
+    const showK = multi() || measurements.some((m) => m.kettle && (brew.kettles || []).length > 1);
+    host.innerHTML = `<div class="tablewrap"><table class="list"><thead><tr><th>Wanneer</th>${showK ? "<th>Ketel</th>" : ""}<th>SG</th><th>°P</th><th>ABV</th><th>°C</th><th>pH</th><th>Opmerking</th><th></th></tr></thead><tbody>
+      ${measurements.map((m) => { const og = ogFor(m); return `<tr><td>${fmtDateTime(m.measured_at)}</td>${showK ? `<td>${esc(m.kettle || "–")}</td>` : ""}<td><b>${fmtSG(m.sg)}</b></td><td>${m.sg ? fmt1(plato(m.sg)) : ""}</td>
         <td>${og && m.sg ? fmt1(abv(og, m.sg)) + "%" : ""}</td><td>${m.temp_c ?? ""}</td><td>${m.ph ?? ""}</td><td>${esc(m.note || "")}</td>
-        <td><button class="x" data-mdel="${m.id}" title="Verwijderen">×</button></td></tr>`).join("")}
+        <td><button class="x" data-mdel="${m.id}" title="Verwijderen">×</button></td></tr>`; }).join("")}
       </tbody></table></div>`;
     $$("[data-mdel]", host).forEach((b) => (b.onclick = () => delMeasurement(b.dataset.mdel)));
     $("#chart").innerHTML = chart();
   }
   function chart() {
-    const pts = measurements.filter((m) => m.sg).map((m) => ({ t: new Date(m.measured_at).getTime(), v: Number(m.sg), c: m.temp_c }));
-    if (pts.length < 2) return "";
-    const W = 720, H = 260, L = 56, R = 16, T = 16, B = 34;
-    const t0 = pts[0].t, t1 = pts[pts.length - 1].t || t0 + 1;
-    const vals = pts.map((p) => p.v).concat(brew.target_fg ? [Number(brew.target_fg)] : []);
-    let vmin = Math.min(...vals) - 0.003, vmax = Math.max(...vals) + 0.003;
+    const all = measurements.filter((m) => m.sg).map((m) => ({ t: new Date(m.measured_at).getTime(), v: Number(m.sg), c: m.temp_c, k: m.kettle || null }));
+    if (all.length < 2) return "";
+    const kettles = multi() ? brew.kettles : [];
+    const series = kettles.length
+      ? kettles.map((k, i) => ({ name: k, color: KETTLE_COLORS[i % KETTLE_COLORS.length], pts: all.filter((p) => p.k === k) }))
+          .concat([{ name: "Algemeen", color: "#8a6d50", pts: all.filter((p) => !p.k || !kettles.includes(p.k)) }]).filter((s) => s.pts.length)
+      : [{ name: "SG", color: "#7d1d1d", pts: all }];
+    const W = 720, H = 260, L = 56, R = 16, T = series.length > 1 ? 30 : 16, B = 34;
+    const t0 = Math.min(...all.map((p) => p.t)), t1 = Math.max(...all.map((p) => p.t)) || t0 + 1;
+    const vals = all.map((p) => p.v).concat(brew.target_fg ? [Number(brew.target_fg)] : []);
+    const vmin = Math.min(...vals) - 0.003, vmax = Math.max(...vals) + 0.003;
     const x = (t) => L + ((t - t0) / Math.max(1, t1 - t0)) * (W - L - R);
     const y = (v) => T + (1 - (v - vmin) / (vmax - vmin)) * (H - T - B);
     const days = (t1 - t0) / 864e5;
@@ -602,12 +711,17 @@
     const step = days > 20 ? 7 : days > 8 ? 2 : 1;
     for (let d = 0; d <= days + 0.001; d += step) grid += `<text x="${x(t0 + d * 864e5)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="#8a6d50">dag ${Math.round(d)}</text>`;
     const tgt = brew.target_fg ? `<line x1="${L}" x2="${W - R}" y1="${y(brew.target_fg)}" y2="${y(brew.target_fg)}" stroke="#4f6b26" stroke-dasharray="5 4"/><text x="${L + 6}" y="${y(brew.target_fg) - 5}" text-anchor="start" font-size="11" fill="#4f6b26">doel FG ${fmtSG(brew.target_fg)}</text>` : "";
-    const path = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
-    const area = `${path} L${x(pts[pts.length - 1].t)},${H - B} L${x(t0)},${H - B} Z`;
+    const legend = series.length > 1 ? series.map((s, i) => `<circle cx="${L + i * 130 + 6}" cy="12" r="5" fill="${s.color}"/><text x="${L + i * 130 + 16}" y="16" font-size="12" fill="#2b1a10">${esc(s.name)}</text>`).join("") : "";
+    const single = series.length === 1;
+    const lines = series.map((s) => {
+      const path = s.pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+      const area = single && s.pts.length > 1 ? `<path d="${path} L${x(s.pts[s.pts.length - 1].t)},${H - B} L${x(s.pts[0].t)},${H - B} Z" fill="url(#g)"/>` : "";
+      return `${area}<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2.5"/>` +
+        s.pts.map((p) => `<circle cx="${x(p.t)}" cy="${y(p.v)}" r="4" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${esc(s.name)}: ${fmtSG(p.v)}${p.c != null ? " · " + p.c + " °C" : ""}</title></circle>`).join("");
+    }).join("");
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="SG-verloop">
       <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e0a63a" stop-opacity=".35"/><stop offset="1" stop-color="#e0a63a" stop-opacity="0"/></linearGradient></defs>
-      ${grid}${tgt}<path d="${area}" fill="url(#g)"/><path d="${path}" fill="none" stroke="#7d1d1d" stroke-width="2.5"/>
-      ${pts.map((p) => `<circle cx="${x(p.t)}" cy="${y(p.v)}" r="4" fill="#fff" stroke="#7d1d1d" stroke-width="2"><title>${fmtSG(p.v)}${p.c != null ? " · " + p.c + " °C" : ""}</title></circle>`).join("")}
+      ${grid}${tgt}${legend}${lines}
     </svg>`;
   }
 })();

@@ -14,6 +14,11 @@ window.MVM_CONFIG = {
   supabaseUrl: "https://eujyabceagfxvtxluzai.supabase.co",          // bijv. "https://abcdefgh.supabase.co"
   supabaseAnonKey: "sb_publishable_pTbWSeeaV-Y4YOVc6ESHdw_pBUVKply",      // bijv. "eyJhbGciOi..." of "sb_publishable_..."
 
+  /* --- Ketels ------------------------------------------------------------
+     Kies je per brouwsel in de brouwlog. Bij meerdere ketels registreer je
+     de SG-waarden per ketel. */
+  kettles: ["Brewmonk", "Grainfather"],
+
   /* --- 2. De brouwers ----------------------------------------------------
      Volgorde = volgorde op het etiket (van links naar rechts).
      Vul de namen in en pas de rollen/teksten gerust aan. */
