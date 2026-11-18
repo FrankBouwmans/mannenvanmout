@@ -131,8 +131,8 @@ window.MVM_CONFIG = {
       name: "Gouden Broeder Tripel",
       style: "Belgische tripel",
       abv: null,             // vul in zodra gemeten, bijv. 8.5
-      image: "assets/etiket-tripel-voor.jpg",
-      labelFull: "assets/etiket-tripel-volledig.jpg",
+      image: "assets/etiket-tripel-voor.jpg?v=2",
+      labelFull: "assets/etiket-tripel-volledig.jpg?v=2",
       description: "Een karaktervolle tripel, goud van kleur. Volmoutig, kruidig en met een verfijnde bitterheid."
     }
   ]
