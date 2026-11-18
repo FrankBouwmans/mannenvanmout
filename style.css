@@ -262,7 +262,9 @@ body.dicht{overflow:hidden}
 .nietgevonden .knoppen{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
 
 /* naar boven, ankers onder de vaste menubalk, iconen */
-section,[id]{scroll-margin-top:72px}
+[id]{scroll-margin-top:72px}
+/* secties: bovenkant valt net onder de menubalk, geen strookje van de vorige sectie */
+section[id]{scroll-margin-top:24px}
 .btn .icon{flex-shrink:0;margin:-2px 0}
 .proost-glazen{display:block;margin:6px auto 0}
 .banner .proost{font-family:var(--display);font-size:1.6rem;color:var(--cream);margin:4px 0 0;letter-spacing:1px}
