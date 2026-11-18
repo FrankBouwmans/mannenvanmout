@@ -11,7 +11,7 @@
     <button type="button" class="kaart" aria-pressed="false" aria-label="Kwartetkaart van ${esc(b.name)}, klik om om te draaien">
       <span class="kaart-in">
         <span class="kaart-voor">
-          <span class="kaart-kop"><b>${esc(b.code || "A" + (i + 1))}</b><small>Mannen van Mout</small></span>
+          <span class="kaart-kop"><small>Mannen van Mout</small></span>
           <img src="${esc(b.photo)}" alt="" loading="lazy">
           <span class="role">${esc(b.role)}</span>
           <span class="naam">${esc(b.name)}</span>
@@ -19,7 +19,7 @@
           <span class="tip">Klik voor stats</span>
         </span>
         <span class="kaart-achter">
-          <span class="kaart-kop"><b>${esc(b.code || "A" + (i + 1))}</b><small>${esc(b.name)}</small></span>
+          <span class="kaart-kop"><small>${esc(b.name)}</small></span>
           ${(b.stats || []).map(([l, v]) => `
             <span class="kstat"><span class="kstat-l"><span>${esc(l)}</span><span>${Number(v)}/10</span></span>
             <span class="balk"><span style="width:${Math.max(0, Math.min(10, Number(v))) * 10}%"></span></span></span>`).join("")}
