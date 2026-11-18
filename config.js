@@ -56,7 +56,7 @@ window.MVM_CONFIG = {
       photo: "assets/brouwer4.jpg",
       quote: "Ruikt één keer aan een hopbel en noemt het alfazuur. Zegt hij.",
       code: "A4",
-      stats: [["Brouwervaring", 10], ["Neus voor aroma", 9], ["Chef analyse", 8]],   // [eigenschap, score 0-10]
+      stats: [["Brouwervaring", 10], ["Hopsnuiver", 9], ["Verklaarder", 8]],   // [eigenschap, score 0-10]
       power: "Bracht de tweede ketel mee en verdubbelde zo de brouwerij."
     }
   ],
