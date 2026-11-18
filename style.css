@@ -345,10 +345,22 @@ input::-webkit-date-and-time-value{text-align:left}
   table.list.edit td.first{grid-column:1 / -1;padding-right:40px}
   table.list.edit td:last-child{position:absolute;top:30px;right:0}
   .grid:has(> .card){grid-template-columns:1fr}
-  .grid > .field{display:flex;flex-direction:column;justify-content:flex-end}
   table.list.edit td[data-l]::before{content:attr(data-l);display:block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:3px}
   table.list.edit td input,table.list.edit td select{padding:9px 10px;font-size:1rem}
 }
 @media (max-width:380px){
   .g2,.g3,.g4{grid-template-columns:1fr}
+}
+
+/* inlogknop in de menubalk */
+.nav-login{white-space:nowrap;flex-shrink:0;gap:7px}
+@media (max-width:480px){
+  .brand{font-size:1.05rem;gap:8px}
+  .brand .hop{width:22px;height:22px}
+  .nav-login{padding:8px 12px;font-size:.85rem}
+}
+/* formulieren op de telefoon: alle velden even hoog, labels netjes uitgelijnd */
+@media (max-width:640px){
+  .grid > .field > input:not([type=checkbox]):not([type=radio]), .grid > .field > select{height:48px;min-height:48px}
+  #gemeten .grid > .field > label{min-height:2.6em}
 }
