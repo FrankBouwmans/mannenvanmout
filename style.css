@@ -268,3 +268,26 @@ section[id]{scroll-margin-top:24px}
 .btn .icon{flex-shrink:0;margin:-2px 0}
 .proost-glazen{display:block;margin:6px auto 0}
 .banner .proost{font-family:var(--display);font-size:1.6rem;color:var(--cream);margin:4px 0 0;letter-spacing:1px}
+
+/* ==========================================================================
+   Compacter op desktop: "Ons verhaal" en de brouwers passen in één scherm
+   ========================================================================== */
+@media (min-width:861px){
+  section{padding:52px 0}
+  section[id]{scroll-margin-top:34px}
+  .section-title{margin-bottom:26px}
+  .section-title h2{font-size:clamp(2rem,3.4vw,2.5rem);margin-bottom:.25em}
+  .divider{margin:0 0 8px}
+  .story{grid-template-columns:1.7fr 1fr;gap:40px}
+  .story p{font-size:1.02rem;line-height:1.55;margin:0 0 .75em}
+  .story p:first-of-type::first-letter{font-size:3rem}
+  .facts{padding:18px 20px}
+  .facts dl{gap:6px 14px;font-size:.9rem}
+  .kaart{height:410px}
+  .kaart-voor img{width:122px;height:122px;margin:14px auto 4px}
+  .kaart-voor .naam{font-size:1.45rem}
+  .kaart-voor .quote{font-size:.93rem}
+  .kaart-kop{padding:11px 14px}
+  .kaart-achter{gap:10px}
+  .quiz-cta{margin-top:24px}
+}
