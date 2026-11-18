@@ -6,17 +6,20 @@
   const host = document.getElementById("quiz");
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   let step = 0, scores = brewers.map(() => 0);
+  const idx = (naam) => brewers.findIndex((b) => b.name.trim().toLowerCase() === String(naam).trim().toLowerCase());
+  const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   function vraag() {
     const q = quiz.questions[step];
+    const ans = shuffle(q.a.map((x) => (typeof x === "string" ? { t: x, voor: [] } : x)));
     const pct = Math.round((step / quiz.questions.length) * 100);
     host.innerHTML = `
       <div class="quiz-voortgang"><span>Vraag ${step + 1} van ${quiz.questions.length}</span><span class="balk"><span style="width:${pct}%"></span></span></div>
       <h2>${esc(q.q)}</h2>
-      <div class="antwoorden">${q.a.map((t, i) => `<button type="button" class="antwoord" data-i="${i}"><b>${"ABCD"[i]}</b><span>${esc(t)}</span></button>`).join("")}</div>`;
+      <div class="antwoorden">${ans.map((x, i) => `<button type="button" class="antwoord" data-i="${i}"><b>${"ABCDEF"[i]}</b><span>${esc(x.t)}</span></button>`).join("")}</div>`;
     host.querySelectorAll(".antwoord").forEach((b) => b.addEventListener("click", () => {
-      const i = Number(b.dataset.i);
-      if (i < scores.length) scores[i] += 1;
+      const x = ans[Number(b.dataset.i)];
+      [].concat(x.voor || []).forEach((naam) => { const k = idx(naam); if (k >= 0) scores[k] += 1; });
       step += 1;
       step < quiz.questions.length ? vraag() : uitslag();
     }));
@@ -24,10 +27,12 @@
   }
 
   function uitslag() {
-    let best = 0;
-    scores.forEach((s, i) => { if (s > scores[best]) best = i; });
+    // hoogste score wint; bij gelijkspel kiest het toeval
+    const top = Math.max(...scores);
+    const kandidaten = scores.map((s, i) => (s === top ? i : -1)).filter((i) => i >= 0);
+    const best = kandidaten[Math.floor(Math.random() * kandidaten.length)];
     const b = brewers[best] || {};
-    const tekst = (quiz.results || [])[best] || b.quote || "";
+    const tekst = (quiz.results || {})[b.name] || b.quote || "";
     const deeltekst = `Ik ben ${b.name}, ${String(b.role || "").toLowerCase()}! Welke Moutman ben jij? https://mannenvanmout.nl/quiz.html`;
     host.innerHTML = `
       <div class="uitslag">

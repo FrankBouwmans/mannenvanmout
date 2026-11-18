@@ -57,28 +57,54 @@ window.MVM_CONFIG = {
   ],
 
   /* --- 4. Quiz "Welke Moutman ben jij?" (quiz.html) ----------------------
-     Elke vraag heeft precies 4 antwoorden. Antwoord 1 telt voor de 1e
-     brouwer hierboven (Marco K), antwoord 2 voor de 2e (Tom K), enz.
-     De uitslag is de brouwer met de meeste punten.
-     LET OP: dit zijn tijdelijke demo-vragen. */
+     Bij elk antwoord staat "voor": de naam van de brouwer (precies zoals
+     hierboven bij brewers) die een punt krijgt. Meerdere mag ook:
+     voor: ["Marco S", "Frank B"]. De antwoorden worden op het scherm
+     gehusseld; de brouwer met de meeste punten is de uitslag.
+     "results" = de tekst bij de uitslag, per brouwer. */
   quiz: {
-    results: [
-      "Geen maisch zonder jouw spierkracht. Jij praat niet over brouwen, jij roert.",
-      "Bij jou klopt alles tot op de derde decimaal. Jij hebt het recept al drie keer nagerekend voordat de rest wakker is.",
-      "Geen bier verlaat de tuin zonder jouw goedkeuring. En die geef je pas na het tweede glas.",
-      "Jij ruikt de hop al voordat de zak open is. Bij twijfel: meer hop."
-    ],
+    results: {
+      "Marco K": "Geen maisch zonder jouw spierkracht. Jij praat niet over brouwen, jij roert.",
+      "Tom K": "Bij jou klopt alles tot op de derde decimaal. Jij hebt het recept al drie keer nagerekend voordat de rest wakker is.",
+      "Marco S": "Geen bier verlaat de tuin zonder jouw goedkeuring. En die geef je pas na het tweede glas.",
+      "Frank B": "Jij ruikt de hop al voordat de zak open is. Bij twijfel: meer hop."
+    },
     questions: [
       { q: "Het is brouwdag. Wat doe jij als eerste?",
-        a: ["Mouwen opstropen en de roerspaan pakken", "Het recept nog één keer narekenen", "Alvast een glas klaarzetten, om te testen", "Met je neus in de hopzak"] },
+        a: [
+          { t: "Mouwen opstropen en de roerspaan pakken", voor: "Marco K" },
+          { t: "Het recept nog één keer narekenen", voor: "Tom K" },
+          { t: "Alvast een glas klaarzetten, om te testen", voor: "Marco S" },
+          { t: "Met je neus in de hopzak", voor: "Frank B" }
+        ] },
       { q: "Wat is jouw favoriete gereedschap?",
-        a: ["De roerspaan", "Een spreadsheet met formules", "Het proefglas", "Een zak verse hopbellen"] },
+        a: [
+          { t: "De roerspaan", voor: "Marco K" },
+          { t: "De Grainfather app", voor: "Tom K" },
+          { t: "Het proefglas", voor: "Marco S" },
+          { t: "De refractometer", voor: "Frank B" }
+        ] },
       { q: "Er gaat iets mis tijdens het brouwen. Jij…",
-        a: ["…roert gewoon wat harder", "…zoekt de oorzaak in de cijfers", "…proeft of het nog te redden is", "…zegt: meer hop lost alles op"] },
+        a: [
+          { t: "…roert gewoon wat harder", voor: "Marco K" },
+          { t: "…zoekt de oorzaak in de cijfers", voor: "Tom K" },
+          { t: "…proeft of het nog te redden is", voor: "Marco S" },
+          { t: "…analyseert en verzint een logisch klinkend verhaal", voor: "Frank B" }
+        ] },
       { q: "Wat neem je mee naar een verjaardag?",
-        a: ["Spierpijn van de vorige brouwdag", "Een uitgeprint recept", "Een eerlijke mening over het bier", "Een zakje hop, als cadeau"] },
+        a: [
+          { t: "Spierpijn van de vorige brouwdag", voor: "Marco K" },
+          { t: "Een eerlijke mening over het bier", voor: "Tom K" },
+          { t: "Een uitgeprint recept", voor: "Marco S" },
+          { t: "Een zakje hop, als cadeau", voor: "Frank B" }
+        ] },
       { q: "Jouw ideale bier is…",
-        a: ["…eerlijk zwoegwerk", "…precies zoals het recept zegt", "…perfect in balans", "…zo hoppig dat je ogen tranen"] }
+        a: [
+          { t: "…eerlijk zwoegwerk", voor: "Marco K" },
+          { t: "…precies zoals het recept zegt", voor: "Tom K" },
+          { t: "…perfect in balans", voor: "Marco S" },
+          { t: "…zo hoppig dat je ogen tranen", voor: "Frank B" }
+        ] }
     ]
   },
 
