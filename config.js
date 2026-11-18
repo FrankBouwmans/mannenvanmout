@@ -11,7 +11,9 @@ window.MVM_CONFIG = {
      de beveiliging zit in de database-regels (schema.sql).
      Zolang deze leeg zijn werkt de publieke site gewoon, alleen het
      inloggedeelte niet. */
-  supabaseUrl: "https://eujyabceagfxvtxluzai.supabase.co",          // bijv. "https://abcdefgh.supabase.co"
+  // LET OP: verander je ooit van Supabase-project, pas dan ook het adres aan in de
+  // "Content-Security-Policy"-regel bovenin index.html, quiz.html, 404.html en app.html.
+  supabaseUrl: "https://eujyabceagfxvtxluzai.supabase.co",
   supabaseAnonKey: "sb_publishable_pTbWSeeaV-Y4YOVc6ESHdw_pBUVKply",      // bijv. "eyJhbGciOi..." of "sb_publishable_..."
 
   /* --- Ketels ------------------------------------------------------------

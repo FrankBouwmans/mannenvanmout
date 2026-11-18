@@ -426,18 +426,18 @@
         <p class="hint">Neem de verfijnde waarden daarna ook over in de Grainfather-app, dan kloppen de receptberekeningen daar ook.</p>
       </div>`;
     $$("[data-take]", main).forEach((b) => (b.onclick = () => {
-      const [k, f, v] = b.dataset.take.split("|"); const el = $(`[data-pf="${k}|${f}"]`, main); if (el) { el.value = v; el.focus(); }
+      const [k, f, v] = b.dataset.take.split("|"); const el = $(`[data-pf="${CSS.escape(k + "|" + f)}"]`, main); if (el) { el.value = v; el.focus(); }
     }));
     $$("[data-psave]", main).forEach((b) => (b.onclick = async () => {
       const k = b.dataset.psave, prof = {};
-      $$(`[data-pf^="${k}|"]`, main).forEach((el) => {
+      $$(`[data-pf^="${CSS.escape(k + "|")}"]`, main).forEach((el) => {
         const f = el.dataset.pf.split("|")[1], def = P_FIELDS.find((x) => x[0] === f);
         prof[f] = !def || def[4] === "text" ? (el.value.trim() || null) : num(el.value);
       });
       b.disabled = true;
       const { error } = await sb.from("kettle_profiles").update({ profile: prof, updated_at: new Date().toISOString() }).eq("name", k);
       b.disabled = false;
-      $(`[data-pmsg="${k}"]`, main).textContent = error ? "Fout: " + error.message : "Opgeslagen ✓";
+      $(`[data-pmsg="${CSS.escape(k)}"]`, main).textContent = error ? "Fout: " + error.message : "Opgeslagen ✓";
       if (!error) PROFILES[k] = prof;
     }));
   }
@@ -712,7 +712,7 @@
     bindFields(main);
     renderGemeten();
     $$("[data-kettle]", main).forEach((c) => (c.onchange = () => {
-      brew.kettles = KETTLES.filter((k) => $(`[data-kettle="${k}"]`, main).checked);
+      brew.kettles = KETTLES.filter((k) => $(`[data-kettle="${CSS.escape(k)}"]`, main).checked);
       if (multi()) {
         // eerste keer naar meerdere ketels: huidige waarden overnemen in de eerste ketel
         const first = kv(brew.kettles[0]);
@@ -814,7 +814,7 @@
           ${inp("mash_ph", "pH maisch", { ph: "5.3" })}
           ${inp("volume_l", "Volume vergister (L)", { ph: "23" })}
           ${inp("bottled_l", "Gebotteld (L)", { ph: "20" })}
-          ${(brew.kettles || []).length === 1 ? VOL_FIELDS.map(([f, l, ph, t]) => { const v = kv(brew.kettles[0])[f]; return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(brew.kettles[0])}|${f}|${t}" value="${v == null ? "" : v}" placeholder="${ph}"></div>`; }).join("") : ""}
+          ${(brew.kettles || []).length === 1 ? VOL_FIELDS.map(([f, l, ph, t]) => { const v = kv(brew.kettles[0])[f]; return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(brew.kettles[0])}|${f}|${t}" value="${v == null ? "" : esc(v)}" placeholder="${ph}"></div>`; }).join("") : ""}
           ${extra}
         </div>
         <p class="hint">Tip: SG mag je ook als <b>1074</b> of <b>74</b> typen.${(brew.kettles || []).length === 1 ? " Met de volumes voor en na het koken berekent de brouwlog het rendement en de verdamping van de ketel." : ""}</p>`;
@@ -824,7 +824,7 @@
           <div style="font-weight:700;margin-bottom:6px">${esc(k)}</div>
           <div class="grid g3">${K_FIELDS.concat(VOL_FIELDS).map(([f, l, ph, t]) => {
             const v = kv(k)[f];
-            return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(k)}|${f}|${t}" value="${v == null ? "" : t === "sg" ? Number(v).toFixed(3) : v}" placeholder="${ph}"></div>`;
+            return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(k)}|${f}|${t}" value="${v == null ? "" : t === "sg" ? esc(Number(v).toFixed(3)) : esc(v)}" placeholder="${ph}"></div>`;
           }).join("")}</div></div>`).join("")}
         <div id="combined" class="msg info" style="margin-top:0"></div>
         <div class="grid g2">${extra}</div>

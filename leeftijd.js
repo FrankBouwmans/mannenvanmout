@@ -1,5 +1,6 @@
 /* Leeftijdscheck: één keer per bezoeker (browser onthoudt "ja") */
 (function () {
+  const y = document.getElementById("year"); if (y) y.textContent = new Date().getFullYear();
   const KEY = "mvm-18plus";
   try { if (localStorage.getItem(KEY) === "ja") return; } catch (e) { /* geen opslag: gewoon vragen */ }
 
