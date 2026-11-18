@@ -12,17 +12,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Inter:wght@400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body class="app">
 
 <nav class="nav">
   <div class="wrap">
-    <a class="brand" href="index.html"><img class="hop" src="assets/hop.svg" alt="">Mannen van Mout</a>
+    <a class="brand" href="index.html"><img class="hop" src="assets/hop.svg" alt=""><span class="brand-t">Mannen van Mout</span></a>
     <div class="row" id="userbar" style="color:var(--cream)">
-      <span id="who" style="font-size:.85rem;opacity:.8"></span>
-      <button class="btn small ghost hidden" id="btnPw">Wachtwoord</button>
-      <button class="btn small ghost hidden" id="btnLogout">Uitloggen</button>
+      <span id="who" class="hide-sm" style="font-size:.85rem;opacity:.8"></span>
+      <button class="btn small ghost hidden" id="btnPw" aria-label="Wachtwoord wijzigen" title="Wachtwoord wijzigen"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M14.5 8.5l2.5 2.5"/></svg><span class="hide-sm">Wachtwoord</span></button>
+      <button class="btn small ghost hidden" id="btnLogout" aria-label="Uitloggen" title="Uitloggen"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span class="hide-sm">Uitloggen</span></button>
     </div>
   </div>
 </nav>
@@ -34,6 +34,6 @@
 <script src="config.js?v=20"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="importeren.js?v=5"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

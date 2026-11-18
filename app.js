@@ -342,7 +342,7 @@
           ${(brew.kettles || []).length > 1 ? `<div class="field"><label>Ketel</label><select id="t_k">${brew.kettles.map((k) => `<option>${esc(k)}</option>`).join("")}<option value="">Gemengd / onbekend</option></select></div>` : "<div></div>"}
         </div>
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-          ${T_CATS.map(([k, l, m, h]) => `<div class="field"><label title="${esc(h)}">${l} (0–${m})</label><input type="number" min="0" max="${m}" step="1" data-tc="${k}" placeholder="${Math.round(m * 0.7)}"><div class="hint" style="font-size:.75rem">${h}</div></div>`).join("")}
+          ${T_CATS.map(([k, l, m, h]) => `<div class="field"><label title="${esc(h)}">${l} (0–${m})</label><input type="number" min="0" max="${m}" step="1" data-tc="${k}"><div class="hint" style="font-size:.75rem">${h}</div></div>`).join("")}
         </div>
         <div class="field"><label>Notities</label><textarea id="t_notes" style="min-height:80px" placeholder="Wat proef je? Wat zou je de volgende keer anders doen?"></textarea></div>
         <div class="row"><button class="btn">Proeving opslaan</button><span class="hint" id="t_sum"></span></div>
@@ -697,10 +697,10 @@
       </div>
 
       <div class="sticky-save"><div class="row">
-        <button class="btn" id="save">💾 Opslaan</button>
+        <button class="btn" id="save">Opslaan</button>
         <span id="saveMsg" class="hint"></span>
         <span class="spacer"></span>
-        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)">Kopie als nieuwe batch</button><button class="btn small danger" id="del">Verwijderen</button>`}
+        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)" title="Kopie als nieuwe batch">Kopie<span class="hide-sm"> als nieuwe batch</span></button><button class="btn small danger" id="del" title="Verwijderen">Verwijder<span class="hide-sm">en</span></button>`}
       </div></div>`;
 
     // tabs
@@ -845,8 +845,8 @@
     if (!Array.isArray(brew[key])) brew[key] = [];
     const draw = () => {
       const rows = brew[key];
-      host.innerHTML = `<div class="tablewrap"><table class="list"><thead><tr>${cols.map((c) => `<th style="${c.w ? `width:${c.w}` : ""}">${c.l}</th>`).join("")}<th></th></tr></thead><tbody>
-        ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${c.opts
+      host.innerHTML = `<div class="tablewrap"><table class="list edit"><thead><tr>${cols.map((c) => `<th style="${c.w ? `width:${c.w}` : ""}">${c.l}</th>`).join("")}<th></th></tr></thead><tbody>
+        ${rows.map((r, i) => `<tr>${cols.map((c, ci) => `<td data-l="${esc(c.l)}" class="${ci === 0 ? "first" : ""}">${c.opts
           ? `<select data-i="${i}" data-c="${c.k}">${c.opts.map((o) => `<option ${r[c.k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`
           : `<input data-i="${i}" data-c="${c.k}" value="${esc(r[c.k] ?? "")}" placeholder="${esc(c.ph || "")}" ${c.n ? `inputmode="decimal"` : ""}>`}</td>`).join("")}
           <td><button class="x" data-del="${i}" title="Verwijderen">×</button></td></tr>`).join("")}

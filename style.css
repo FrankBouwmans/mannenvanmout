@@ -311,3 +311,44 @@ button.ph.etiket:hover .zoom,button.ph.etiket:focus-visible .zoom{opacity:1}
 .hero .wrap{grid-template-columns:1fr 1.15fr}
 .hero-img{width:100%;height:auto;transform:rotate(-1deg)}
 @media (max-width:860px){.hero .wrap{grid-template-columns:1fr}.hero-img{transform:none}}
+
+/* ==========================================================================
+   Brouwlog op de telefoon
+   ========================================================================== */
+.grid > *, .row > *{min-width:0}
+input[type=date],input[type=datetime-local],input[type=time]{min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:46px;text-align:left}
+input::-webkit-date-and-time-value{text-align:left}
+.btn .icon{flex-shrink:0}
+.tablewrap table.list:not(.edit){min-width:560px}
+@media (max-width:640px){
+  .hide-sm{display:none !important}
+  .app .nav .wrap{height:56px;gap:8px}
+  .app .brand{font-size:1.05rem;gap:6px}
+  .app .brand .hop{width:22px;height:22px}
+  .app #userbar{flex-wrap:nowrap;gap:6px}
+  .app #userbar .btn{padding:8px 10px}
+  .app main{padding:18px 0 40px}
+  .app h1{font-size:1.7rem}
+  .card{padding:16px 14px}
+  .g2,.g3,.g4{grid-template-columns:1fr 1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi strong{font-size:1.35rem}
+  .sticky-save{padding:8px 0}
+  .sticky-save .btn{padding:9px 14px}
+  .sticky-save #saveMsg{flex-basis:100%;order:9;font-size:.8rem}
+  .tabs button{padding:10px 10px;font-size:.95rem}
+  /* receptregels als kaartjes in plaats van een te smalle tabel */
+  table.list.edit thead{display:none}
+  table.list.edit,table.list.edit tbody{display:block}
+  table.list.edit tr{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
+  table.list.edit td{display:block;padding:0;border:0}
+  table.list.edit td.first{grid-column:1 / -1;padding-right:40px}
+  table.list.edit td:last-child{position:absolute;top:30px;right:0}
+  .grid:has(> .card){grid-template-columns:1fr}
+  .grid > .field{display:flex;flex-direction:column;justify-content:flex-end}
+  table.list.edit td[data-l]::before{content:attr(data-l);display:block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:3px}
+  table.list.edit td input,table.list.edit td select{padding:9px 10px;font-size:1rem}
+}
+@media (max-width:380px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+}
