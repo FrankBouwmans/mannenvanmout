@@ -195,78 +195,33 @@
   }
 
 
-  /* ---------- Importeren (Grainfather / Brewfather) ---------- */
+  /* ---------- Importeren (Grainfather, BeerXML) ---------- */
   async function saveImported(item) {
     const { brew: b, measurements: ms } = item;
-    let id = null;
-    if (b.source && b.external_id) {
-      const { data: ex, error: e1 } = await sb.from("brews").select("id").eq("source", b.source).eq("external_id", b.external_id).maybeSingle();
-      if (e1) throw new Error(dbHint(e1.message));
-      if (ex) id = ex.id;
-    }
-    if (id) {
-      const { error } = await sb.from("brews").update(b).eq("id", id);
-      if (error) throw new Error(dbHint(error.message));
-    } else {
-      const { data, error } = await sb.from("brews").insert(b).select("id").single();
-      if (error) throw new Error(dbHint(error.message));
-      id = data.id;
-    }
+    const { data, error } = await sb.from("brews").insert(b).select("id").single();
+    if (error) throw new Error(error.message);
     if (ms && ms.length) {
-      if (b.source === "brewfather") await sb.from("measurements").delete().eq("brew_id", id).eq("source", "brewfather");
-      const rows = ms.map((m) => Object.assign({}, m, { brew_id: id }));
-      for (let i = 0; i < rows.length; i += 500) {
-        const { error } = await sb.from("measurements").insert(rows.slice(i, i + 500));
-        if (error) throw new Error(dbHint(error.message));
-      }
+      const rows = ms.map((m) => Object.assign({}, m, { brew_id: data.id }));
+      const { error: e2 } = await sb.from("measurements").insert(rows);
+      if (e2) throw new Error(e2.message);
     }
-    return id;
-  }
-  function dbHint(m) {
-    if (/column .*(source|external_id)/i.test(m) || /schema cache/i.test(m)) return "De database mist nog de import-kolommen. Draai eerst supabase/migrations/002_integraties.sql in Supabase. (" + m + ")";
-    return m;
+    return data.id;
   }
 
-  async function bf(path, params) {
-    const { data, error } = await sb.functions.invoke("brewfather", { body: { path, params } });
-    if (error) {
-      let msg = error.message;
-      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* geen json */ }
-      if (/Failed to send|NOT_FOUND|404/i.test(msg)) msg = "De Brewfather-koppeling (Edge Function) is nog niet geïnstalleerd. Zie de LEESMIJ.";
-      throw new Error(msg);
-    }
-    return typeof data === "string" ? JSON.parse(data) : data;
-  }
-  async function importBrewfatherBatch(id) {
-    const batch = await bf("batches/" + id, { complete: "True" });
-    let readings = [];
-    try { readings = await bf("batches/" + id + "/readings"); } catch (e) { /* geen metingen */ }
-    return saveImported(window.MVM_IMPORT.bfBatch(batch, readings));
-  }
 
   async function viewImport() {
     main.innerHTML = `
       <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle brouwsels</a></p>
       <h1 style="margin:0 0 4px">Importeren</h1>
-      <p class="hint" style="margin-top:0">Haal recepten en batches binnen uit Grainfather of Brewfather, zonder overtikken.</p>
-      <div class="grid g2" style="align-items:start">
+      <p class="hint" style="margin-top:0">Haal recepten binnen uit Grainfather, zonder overtikken.</p>
+      <div style="max-width:720px">
         <div class="card">
-          <h2>Bestand importeren</h2>
-          <p class="hint">Werkt met <b>Grainfather</b> en <b>Brewfather</b> (en BeerSmith e.d.).</p>
-          <ul class="hint" style="padding-left:18px;margin-top:0">
-            <li><b>Grainfather:</b> exporteer het recept als BeerXML (.xml).</li>
-            <li><b>Brewfather:</b> exporteer een recept of batch als BeerXML of Brewfather JSON (.json). Een batch-JSON neemt ook de gemeten waarden en metingen mee.</li>
-          </ul>
-          <div class="field"><input type="file" id="imf" accept=".xml,.json,.beerxml,text/xml,application/json" multiple></div>
+          <h2>BeerXML-bestand importeren</h2>
+          <p class="hint">Exporteer het recept in <b>Grainfather</b> als BeerXML (.xml) en kies het bestand hieronder. Werkt ook met BeerXML uit andere brouwsoftware.</p>
+          <div class="field"><input type="file" id="imf" accept=".xml,.beerxml,text/xml" multiple></div>
           <div id="impreview"></div>
         </div>
-        <div class="card">
-          <h2>Brewfather live</h2>
-          <p class="hint">Haalt je batches rechtstreeks op uit Brewfather, inclusief gemeten OG/FG en alle metingen (ook van een iSpindel/Tilt/RAPT Pill). Opnieuw importeren werkt de batch bij.</p>
-          <button class="btn" id="bfload">Batches ophalen</button>
-          <div id="bflist" style="margin-top:14px"></div>
-        </div>
-      </div>`;
+        </div>`;
 
     $("#imf").onchange = async (e) => {
       const files = Array.from(e.target.files || []);
@@ -296,35 +251,7 @@
       };
     };
 
-    $("#bfload").onclick = async () => {
-      const host = $("#bflist"); const btn = $("#bfload");
-      btn.disabled = true; host.innerHTML = `<p class="hint">Ophalen bij Brewfather…</p>`;
-      try {
-        let all = [], start;
-        for (let i = 0; i < 4; i++) {
-          const page = await bf("batches", Object.assign({ limit: 50, include: "measuredOg,measuredFg,recipe.style" }, start ? { start_after: start } : {}));
-          all = all.concat(page || []);
-          if (!page || page.length < 50) break;
-          start = page[page.length - 1]._id;
-        }
-        const { data: known } = await sb.from("brews").select("id,external_id").eq("source", "brewfather");
-        const map = new Map((known || []).map((k) => [k.external_id, k.id]));
-        all.sort((a, b) => (b.brewDate || 0) - (a.brewDate || 0));
-        host.innerHTML = all.length ? `<div class="tablewrap"><table class="list"><thead><tr><th>Batch</th><th>Status</th><th>Brouwdatum</th><th></th></tr></thead><tbody>
-          ${all.map((b) => `<tr><td><b>${esc(b.name || (b.recipe && b.recipe.name) || "Batch")}</b> <span class="hint">#${esc(b.batchNo ?? "")}</span><br><span class="hint">${esc((b.recipe && b.recipe.name) || "")}</span></td>
-            <td>${esc(b.status || "")}</td><td>${b.brewDate ? fmtDate(b.brewDate) : ""}</td>
-            <td style="text-align:right">${map.has(b._id) ? `<a class="hint" href="#/b/${map.get(b._id)}">bekijken</a> ` : ""}<button class="btn small" data-bf="${esc(b._id)}">${map.has(b._id) ? "Bijwerken" : "Importeren"}</button></td></tr>`).join("")}
-          </tbody></table></div>` : `<p class="hint">Geen batches gevonden in Brewfather.</p>`;
-        $$("[data-bf]", host).forEach((x) => (x.onclick = async () => {
-          x.disabled = true; x.textContent = "Bezig…";
-          try { const id = await importBrewfatherBatch(x.dataset.bf); location.hash = "#/b/" + id; }
-          catch (err) { alert(err.message); x.disabled = false; x.textContent = "Opnieuw proberen"; }
-        }));
-      } catch (err) {
-        host.innerHTML = `<div class="msg err">${esc(err.message)}</div>`;
-      }
-      btn.disabled = false; btn.textContent = "Opnieuw ophalen";
-    };
+
   }
 
   /* ---------- Brouwsel detail / bewerken ---------- */
@@ -476,7 +403,6 @@
         <button class="btn" id="save">💾 Opslaan</button>
         <span id="saveMsg" class="hint"></span>
         <span class="spacer"></span>
-        ${!isNew && brew.source === "brewfather" && brew.external_id ? `<button class="btn small ghost" id="bfsync" style="color:var(--red)">↻ Sync met Brewfather</button>` : ""}
         ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)">Kopie als nieuwe batch</button><button class="btn small danger" id="del">Verwijderen</button>`}
       </div></div>`;
 
@@ -528,12 +454,6 @@
     if (!isNew) {
       $("#del").onclick = del;
       $("#dup").onclick = duplicate;
-      if ($("#bfsync")) $("#bfsync").onclick = async () => {
-        if (dirty && !confirm("Niet-opgeslagen wijzigingen worden overschreven door Brewfather. Doorgaan?")) return;
-        const b = $("#bfsync"); b.disabled = true; b.textContent = "Bezig…";
-        try { await importBrewfatherBatch(brew.external_id); dirty = false; viewBrew(brew.id); }
-        catch (e) { alert(e.message); b.disabled = false; b.textContent = "↻ Sync met Brewfather"; }
-      };
       $("#mf").onsubmit = addMeasurement;
       drawMeasurements();
     }

@@ -1,10 +1,6 @@
 /* =====================================================================
-   Importeren uit Grainfather en Brewfather
-   - BeerXML (export uit Grainfather, Brewfather, BeerSmith, ...)
-   - Brewfather JSON (export van recept of batch)
-   - Brewfather API-batches (via de Supabase-functie "brewfather")
-   Levert brouwsels in het formaat van de tabel "brews",
-   met eventueel metingen voor de tabel "measurements".
+   Importeren uit Grainfather (BeerXML)
+   Levert brouwsels in het formaat van de tabel "brews".
    ===================================================================== */
 (function (root) {
   "use strict";
@@ -21,12 +17,6 @@
     if (x > 2) x = x >= 900 ? x / 1000 : 1 + x / 1000;
     return x >= 0.95 && x <= 1.2 ? Math.round(x * 1000) / 1000 : null;
   };
-  const isoDate = (ms) => {
-    const x = n(ms);
-    if (!x) return null;
-    const d = new Date(x);
-    return isNaN(d) ? null : d.toISOString().slice(0, 10);
-  };
   // Lovibond → EBC (via SRM)
   const lovibondToEbc = (l) => (l === null ? null : r(Math.max(0, 1.3546 * l - 0.76) * 1.97, 1));
   const srmToEbc = (s) => (s === null ? null : r(s * 1.97, 1));
@@ -41,7 +31,6 @@
     return "Koken";
   };
 
-  const STATUS = { planning: "gepland", brewing: "vergisting", fermenting: "vergisting", conditioning: "lagering", completed: "gebotteld", archived: "op" };
 
   /* ---------------- BeerXML ---------------- */
   function parseBeerXML(text) {
@@ -103,80 +92,16 @@
           fermentables, hops, others,
           yeast: yeasts.join(" + ") || null,
           mash_schedule: mashSteps.join("\n") || null,
-          process_notes: notes || null,
-          source: "beerxml", external_id: null
+          process_notes: notes || null
         },
         measurements: []
       };
     });
   }
 
-  /* ---------------- Brewfather (JSON-export en API) ---------------- */
-  // Brewfather levert metrische eenheden: kg, g, liter, °C, SG en kleur in EBC.
-  function bfRecipe(rec) {
-    rec = rec || {};
-    const fermentables = (rec.fermentables || []).map((f) => ({ name: f.name || "", kg: r(n(f.amount), 3), ebc: r(n(f.color), 1) }));
-    const hops = (rec.hops || []).map((h) => {
-      const days = String(h.timeUnit || "").toLowerCase().startsWith("day");
-      return { name: h.name || "", g: r(n(h.amount), 1), alpha: r(n(h.alpha), 1), use: HOP_USE(h.use, days), min: r(n(h.time), 1) };
-    });
-    const yeasts = (rec.yeasts || []).map((y) => [y.laboratory, y.name, y.productId ? `(${y.productId})` : ""].filter(Boolean).join(" ").trim());
-    const others = (rec.miscs || []).map((m) => ({ name: m.name || "", amount: [r(n(m.amount), 2), m.unit].filter((x) => x !== null && x !== undefined && x !== "").join(" "), use: [m.use, m.time ? `${m.time} min` : ""].filter(Boolean).join(", ") }));
-    const steps = ((rec.mash && rec.mash.steps) || []).map((s) => `${s.name || s.type || "Stap"}: ${r(n(s.stepTemp), 1)} °C – ${r(n(s.stepTime), 0)} min`);
-    return {
-      name: rec.name || "Geïmporteerd recept",
-      style: rec.style && rec.style.name ? rec.style.name : null,
-      volume_l: r(n(rec.batchSize), 1),
-      target_og: sg(rec.og), target_fg: sg(rec.fg),
-      target_abv: r(n(rec.abv), 1), ibu: r(n(rec.ibu), 1), ebc: r(n(rec.color), 1),
-      efficiency_pct: r(n(rec.efficiency), 1),
-      fermentables, hops, others,
-      yeast: yeasts.join(" + ") || null,
-      mash_schedule: steps.join("\n") || null,
-      process_notes: rec.notes || null
-    };
-  }
-
-  function bfBatch(batch, readings) {
-    const rec = bfRecipe(batch.recipe || {});
-    const notes = (batch.notes || []).map((x) => (typeof x === "string" ? x : x.note)).filter(Boolean);
-    const brew = Object.assign(rec, {
-      name: batch.name && batch.name !== "Batch" ? batch.name : rec.name,
-      batch_no: batch.batchNo !== undefined && batch.batchNo !== null ? String(batch.batchNo) : null,
-      status: STATUS[String(batch.status || "").toLowerCase()] || "gepland",
-      brew_date: isoDate(batch.brewDate),
-      bottle_date: isoDate(batch.bottlingDate),
-      og: sg(batch.measuredOg), fg: sg(batch.measuredFg),
-      pre_boil_sg: sg(batch.measuredPreBoilGravity),
-      mash_ph: r(n(batch.measuredMashPh), 2),
-      volume_l: r(n(batch.measuredBatchSize), 1) || rec.volume_l,
-      bottled_l: r(n(batch.measuredBottlingSize), 1),
-      process_notes: [rec.process_notes, ...notes].filter(Boolean).join("\n\n") || null,
-      source: "brewfather", external_id: batch._id || null
-    });
-    const measurements = (readings || [])
-      .filter((x) => x && x.time)
-      .map((x) => ({ measured_at: new Date(Number(x.time)).toISOString(), sg: sg(x.sg), temp_c: r(n(x.temp), 1), ph: r(n(x.pH), 2), note: [x.type && x.type !== "manual" ? x.type : null, x.comment].filter(Boolean).join(" – ") || null, source: "brewfather" }))
-      .filter((m) => m.sg !== null || m.temp_c !== null);
-    return { brew, measurements };
-  }
-
-  function parseBrewfatherJSON(text) {
-    let data;
-    try { data = JSON.parse(text); } catch (e) { throw new Error("Dit JSON-bestand kon niet worden gelezen."); }
-    const items = Array.isArray(data) ? data : [data];
-    return items.map((it) => {
-      if (it && (it._type === "batch" || it.recipe)) return bfBatch(it, it.readings || []);
-      const brew = Object.assign(bfRecipe(it), { status: "gepland", source: "brewfather", external_id: null });
-      return { brew, measurements: [] };
-    });
-  }
-
   function parseFile(text, filename) {
-    const t = String(text).trim();
-    if (/\.json$/i.test(filename || "") || t.startsWith("{") || t.startsWith("[")) return parseBrewfatherJSON(t);
-    return parseBeerXML(t);
+    return parseBeerXML(String(text).trim());
   }
 
-  root.MVM_IMPORT = { parseFile, parseBeerXML, parseBrewfatherJSON, bfBatch, bfRecipe, _sg: sg };
+  root.MVM_IMPORT = { parseFile, parseBeerXML };
 })(typeof window !== "undefined" ? window : globalThis);
