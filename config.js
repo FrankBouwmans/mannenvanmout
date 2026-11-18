@@ -28,7 +28,7 @@ window.MVM_CONFIG = {
     {
       name: "Marco K",
       role: "De Roerganger",
-      photo: "assets/brouwer1.jpg",
+      photo: "assets/brouwer1.jpg?v=2",
       quote: "Niemand roert de maisch zoals hij. Zegt hij zelf.",
       code: "A1",
       stats: [["Moutdraaier", 10], ["Roerkracht", 9], ["Technicus", 8]],   // [eigenschap, score 0-10]
@@ -37,7 +37,7 @@ window.MVM_CONFIG = {
     {
       name: "Tom K",
       role: "De Receptengoeroe",
-      photo: "assets/brouwer2.jpg",
+      photo: "assets/brouwer2.jpg?v=2",
       quote: "Heeft voor elk bier een spreadsheet. En voor elke spreadsheet een bier.",
       code: "A2",
       stats: [["Brouwmeester", 10], ["Vergistexpert", 9], ["Meetkundige", 8]],   // [eigenschap, score 0-10]
@@ -46,7 +46,7 @@ window.MVM_CONFIG = {
     {
       name: "Marco S",
       role: "De Kwaliteitscontroleur",
-      photo: "assets/brouwer3.jpg",
+      photo: "assets/brouwer3.jpg?v=2",
       quote: "Proeft elke batch. Meerdere keren. Voor de zekerheid.",
       code: "A3",
       stats: [["Proefcapaciteit", 10], ["Afwegingexpert", 9], ["Neus", 8]],   // [eigenschap, score 0-10]
@@ -55,7 +55,7 @@ window.MVM_CONFIG = {
     {
       name: "Frank B",
       role: "De Hopfluisteraar",
-      photo: "assets/brouwer4.jpg",
+      photo: "assets/brouwer4.jpg?v=2",
       quote: "Ruikt één keer aan een hopbel en noemt het alfazuur. Zegt hij.",
       code: "A4",
       stats: [["Brouwervaring", 10], ["Hopsnuiver", 9], ["Verklaarder", 8]],   // [eigenschap, score 0-10]
