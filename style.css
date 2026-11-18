@@ -364,3 +364,19 @@ input::-webkit-date-and-time-value{text-align:left}
   .grid > .field > input:not([type=checkbox]):not([type=radio]), .grid > .field > select{height:48px;min-height:48px}
   #gemeten .grid > .field > label{min-height:2.6em}
 }
+
+/* brouwlog: kop van de lijst */
+.lijst-kop{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.lijst-kop .btn.nieuw{gap:6px}
+.snelmenu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:520px;margin-bottom:16px}
+.snelmenu a{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 8px;border-radius:12px;background:#fffaf0;border:1px solid var(--line);color:var(--red);font-family:var(--sans);font-weight:600;font-size:.92rem;text-decoration:none;transition:border-color .15s,background .15s}
+.snelmenu a:hover,.snelmenu a:focus-visible{border-color:var(--gold);background:#fff4dc}
+.zoekbalk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;max-width:640px}
+.zoekbalk input{max-width:none}
+.zoekbalk select{width:auto}
+@media (max-width:640px){
+  .lijst-kop .btn.nieuw{width:100%;justify-content:center}
+  .snelmenu{max-width:none}
+  .snelmenu a{flex-direction:column;gap:4px;padding:10px 4px;font-size:.8rem}
+  .zoekbalk select{max-width:165px;font-size:.92rem;padding-right:28px}
+}

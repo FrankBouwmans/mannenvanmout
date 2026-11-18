@@ -211,15 +211,19 @@
     }
     cacheList = data || [];
     main.innerHTML = `
-      <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Brouwlog</h1><span class="spacer"></span>
-        <a class="btn ghost" href="#/brouwers" style="color:var(--red)">👥 Brouwers</a>
-        <a class="btn ghost" href="#/ketels" style="color:var(--red)">⚙ Ketels</a>
-        <a class="btn ghost" href="#/import" style="color:var(--red)">⇩ Importeren</a>
-        <a class="btn" href="#/nieuw">＋ Nieuw brouwsel</a></div>
-      <p class="hint" style="margin-top:0">${cacheList.length} brouwsel${cacheList.length === 1 ? "" : "s"} · alles wat we ooit (bijna) goed deden</p>
-      <div class="toolbar">
-        <input id="q" placeholder="Zoek op naam, stijl of batch…">
-        <select id="st" style="max-width:180px"><option value="">Alle statussen</option>${STATUSES.map((s) => `<option>${s}</option>`).join("")}</select>
+      <div class="lijst-kop">
+        <div><h1 style="margin:0">Brouwlog</h1>
+          <p class="hint" style="margin:2px 0 0">${cacheList.length} brouwsel${cacheList.length === 1 ? "" : "s"} · alles wat we ooit (bijna) goed deden</p></div>
+        <a class="btn nieuw" href="#/nieuw"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuw brouwsel</a>
+      </div>
+      <nav class="snelmenu" aria-label="Beheer">
+        <a href="#/brouwers"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg><span>Brouwers</span></a>
+        <a href="#/ketels"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z"/><path d="M3 8h18M9 4h6M10 4v4M14 4v4M19 11h2v4h-2"/></svg><span>Ketels</span></a>
+        <a href="#/import"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Importeren</span></a>
+      </nav>
+      <div class="toolbar zoekbalk">
+        <input id="q" type="search" placeholder="Zoek op naam, stijl of batch…" aria-label="Zoeken">
+        <select id="st" aria-label="Status"><option value="">Alle statussen</option>${STATUSES.map((s) => `<option>${s}</option>`).join("")}</select>
       </div>
       <div class="brews" id="list"></div>`;
     const draw = () => {
