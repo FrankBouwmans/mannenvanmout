@@ -380,3 +380,13 @@ input::-webkit-date-and-time-value{text-align:left}
   .snelmenu a{flex-direction:column;gap:4px;padding:10px 4px;font-size:.8rem}
   .zoekbalk select{max-width:165px;font-size:.92rem;padding-right:28px}
 }
+
+/* Untappd */
+.untappd-lijst{display:grid;gap:6px}
+.untappd-rij{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.untappd-rij > div{min-width:0}
+.untappd-rij small{display:block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.untappd-rij span{display:block;overflow-wrap:anywhere}
+.untappd-rij .btn{flex-shrink:0}
+.beer .untappd-knop{align-self:flex-start;margin-top:auto;gap:6px;background:#ffc000;color:#1b0e08}
+.beer .untappd-knop:hover{background:#ffd34d}

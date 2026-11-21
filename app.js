@@ -308,6 +308,56 @@
 
   }
 
+  /* ---------- Untappd: gegevens klaarzetten + link ---------- */
+  const isUntappdUrl = (u) => /^https:\/\/(www\.)?(untappd\.com|untp\.beer)\//i.test(String(u || "").trim());
+  function untappdFields() {
+    const a = brew.abv ?? abv(brew.og, brew.fg) ?? brew.target_abv;
+    const feat = (cfg.featuredBeers || []).find((f) => f.name.toLowerCase() === String(brew.name || "").toLowerCase());
+    return {
+      rows: [
+        ["Naam bier", brew.name || ""],
+        ["Brouwerij", "Mannen Van Mout"],
+        ["Stijl", brew.style || ""],
+        ["ABV (%)", a ? (Math.round(a * 10) / 10).toString() : ""],
+        ["IBU", brew.ibu != null ? String(brew.ibu) : ""],
+        ["Omschrijving", brew.public_description || (feat && feat.description) || ""]
+      ],
+      label: feat && (feat.image || "").split("?")[0]
+    };
+  }
+  function renderUntappd() {
+    const host = $("#untappdCard"); if (!host) return;
+    const { rows, label } = untappdFields();
+    const missing = rows.filter(([, v]) => !v).map(([l]) => l);
+    host.innerHTML = `
+      <h2>Untappd</h2>
+      <p class="hint" style="margin-top:0">Untappd heeft geen koppeling om bieren automatisch toe te voegen. Hieronder staat alles klaar om te kopiëren; voeg het bier daarna toe in de Untappd-app bij de brouwerij <b>Mannen Van Mout</b>.</p>
+      <div class="untappd-lijst">
+        ${rows.map(([l, v], i) => `<div class="untappd-rij"><div><small>${esc(l)}</small><span>${v ? esc(v) : '<i class="hint">nog leeg</i>'}</span></div>
+          ${v ? `<button type="button" class="btn small ghost" style="color:var(--red)" data-copy="${i}">Kopieer</button>` : ""}</div>`).join("")}
+      </div>
+      ${missing.length ? `<p class="hint">Nog in te vullen: ${esc(missing.join(", "))}. ABV komt uit OG/FG, de omschrijving uit "Publieke omschrijving" hierboven.</p>` : ""}
+      <div class="row" style="margin:12px 0 18px">
+        <button type="button" class="btn small" id="copyAll">Alles kopiëren</button>
+        ${label ? `<a class="btn small ghost" style="color:var(--red)" href="${esc(label)}" download>Etiket downloaden</a>` : ""}
+        <a class="btn small ghost" style="color:var(--red)" href="https://untappd.com/search?q=${encodeURIComponent(brew.name || "Mannen van Mout")}" target="_blank" rel="noopener">Zoek op Untappd</a>
+      </div>
+      <div class="field" style="margin-bottom:4px"><label for="f_untappd_url">Untappd-link van dit bier</label>
+        <input id="f_untappd_url" data-k="untappd_url" type="url" inputmode="url" placeholder="https://untappd.com/b/mannen-van-mout-…/1234567" value="${esc(brew.untappd_url || "")}"></div>
+      <p class="hint" id="untappdHint">Staat het bier op Untappd? Plak hier de link (in de app: Delen → Kopieer link). Bij publieke bieren verschijnt dan op de site de knop "Check in op Untappd".</p>`;
+    const copy = async (text, btn) => {
+      try { await navigator.clipboard.writeText(text); const o = btn.textContent; btn.textContent = "Gekopieerd ✓"; setTimeout(() => (btn.textContent = o), 1400); }
+      catch (e) { prompt("Kopiëren lukte niet automatisch. Selecteer en kopieer:", text); }
+    };
+    $$("[data-copy]", host).forEach((b) => (b.onclick = () => copy(rows[Number(b.dataset.copy)][1], b)));
+    $("#copyAll").onclick = (e) => copy(rows.filter(([, v]) => v).map(([l, v]) => `${l}: ${v}`).join("\n"), e.currentTarget);
+    bindFields(host);
+    $("#f_untappd_url").addEventListener("input", (e) => {
+      const v = e.target.value.trim();
+      $("#untappdHint").innerHTML = !v || isUntappdUrl(v) ? 'Plak de link van het bier op Untappd (in de app: Delen → Kopieer link).' : '<span style="color:#a33">Dit lijkt geen Untappd-link. Gebruik een link die begint met https://untappd.com/ of https://untp.beer/.</span>';
+    });
+  }
+
   /* ---------- Proefmomenten (scoreformulier, BJCP-schaal) ---------- */
   const T_CATS = [["aroma", "Aroma", 12, "Mout, hop, esters, fenolen, alcohol…"], ["appearance", "Uiterlijk", 3, "Kleur, helderheid, schuim"],
     ["flavor", "Smaak", 20, "Mout, hop, bitterheid, balans, afdronk"], ["mouthfeel", "Mondgevoel", 5, "Body, koolzuur, warmte, droogte"],
@@ -532,7 +582,7 @@
     og: null, fg: null, pre_boil_sg: null, mash_ph: null, ferment_temp_c: null, priming_g_per_l: null,
     fermentables: [], hops: [], yeast: "", others: [], mash_schedule: "", water_notes: "", process_notes: "",
     tasting_notes: "", rating: null, is_public: false, public_description: "",
-    kettles: [], kettle_values: {}, boil_min: null, ferment_schedule: []
+    kettles: [], kettle_values: {}, boil_min: null, ferment_schedule: [], untappd_url: ""
   };
   const multi = () => (brew.kettles || []).length >= 2;
   const kv = (k) => { brew.kettle_values = brew.kettle_values || {}; return (brew.kettle_values[k] = brew.kettle_values[k] || {}); };
@@ -698,6 +748,7 @@
           <div class="field" style="margin-top:12px"><label>Publieke omschrijving</label>
             <textarea data-k="public_description" placeholder="Een karaktervolle tripel, goud van kleur…">${esc(brew.public_description || "")}</textarea></div>
         </div>
+        <div class="card" style="margin-top:16px" id="untappdCard"></div>
       </div>
 
       <div class="sticky-save"><div class="row">
@@ -708,7 +759,7 @@
       </div></div>`;
 
     // tabs
-    const showTab = (t) => { activeTab = t; $$("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t)); $$(".pane").forEach((p) => p.classList.toggle("on", p.dataset.p === t)); };
+    const showTab = (t) => { activeTab = t; if (t === "proeven" && $("#untappdCard") && $("#untappdCard").innerHTML) renderUntappd(); $$("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t)); $$(".pane").forEach((p) => p.classList.toggle("on", p.dataset.p === t)); };
     $$("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.t)));
     showTab(activeTab);
 
@@ -757,6 +808,7 @@
       markDirty(); renderBrew(); activeTabTo("recept");
     }));
     renderTastings();
+    renderUntappd();
     rowsEditor("hops", [
       { k: "name", l: "Hop", ph: "Saaz", w: "34%" },
       { k: "g", l: "gram", ph: "40", n: true },
@@ -911,12 +963,13 @@
     if (!brew.name || !brew.name.trim()) { activeTabTo("basis"); alert("Geef het brouwsel eerst een naam."); return; }
     const btn = $("#save"); btn.disabled = true; $("#saveMsg").textContent = "Opslaan…";
     combineKettles();
+    if (brew.untappd_url && !isUntappdUrl(brew.untappd_url)) { activeTabTo("proeven"); alert("De Untappd-link moet beginnen met https://untappd.com/ of https://untp.beer/."); return; }
     const p = payload();
     const q = brew.id ? sb.from("brews").update(p).eq("id", brew.id).select().single() : sb.from("brews").insert(p).select().single();
     const { data, error } = await q;
     btn.disabled = false;
     if (error) {
-      const m = /kettle|boil_min|ferment_schedule|schema cache/i.test(error.message) ? "De database mist nog kolommen. Draai eerst de SQL voor ketels en proeven in Supabase. (" + error.message + ")" : error.message;
+      const m = /kettle|boil_min|ferment_schedule|untappd|schema cache/i.test(error.message) ? "De database mist nog kolommen. Draai eerst de SQL voor ketels en proeven in Supabase. (" + error.message + ")" : error.message;
       $("#saveMsg").innerHTML = `<span style="color:#a33">Fout: ${esc(m)}</span>`; return;
     }
     const wasNew = !brew.id;

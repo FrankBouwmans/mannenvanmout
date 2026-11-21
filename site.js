@@ -42,6 +42,8 @@
 
   // Bieren
   const hop = `<img src="assets/hop.svg" alt="" style="width:70px;opacity:.7">`;
+  const untappdOk = (u) => /^https:\/\/(www\.)?(untappd\.com|untp\.beer)\//i.test(String(u || ""));
+  const checkIcon = `<svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
   const beerCard = (b) => {
     const abv = b.abv != null && b.abv !== "" ? `<b>${Number(b.abv).toFixed(1).replace(".", ",")}% vol</b>` : "";
     const ph = !b.image ? `<div class="ph">${hop}</div>`
@@ -53,6 +55,7 @@
       <h3>${esc(b.name)}</h3>
       <div class="meta">${abv}<span>${esc(b.style || "")}</span>${b.batch_no ? `<span>Batch ${esc(b.batch_no)}</span>` : ""}</div>
       ${b.description ? `<p>${esc(b.description)}</p>` : ""}
+      ${untappdOk(b.untappd) ? `<a class="btn small untappd-knop" href="${esc(b.untappd)}" target="_blank" rel="noopener">${checkIcon}Check in op Untappd</a>` : ""}
     </div></article>`;
   };
   const el = document.getElementById("beers");
@@ -81,10 +84,10 @@
       // vaste bieren aanvullen met gemeten waarden (bijv. ABV) uit de brouwlog
       const merged = featured.map((f) => {
         const db = byName.get(f.name.toLowerCase());
-        return db ? { ...f, abv: f.abv ?? db.abv, batch_no: f.batch_no ?? db.batch_no } : f;
+        return db ? { ...f, abv: f.abv ?? db.abv, batch_no: f.batch_no ?? db.batch_no, untappd: f.untappd || db.untappd_url } : f;
       });
       const known = new Set(featured.map((b) => b.name.toLowerCase()));
-      const extra = data.filter((b) => !known.has((b.name || "").toLowerCase()));
+      const extra = data.filter((b) => !known.has((b.name || "").toLowerCase())).map((b) => ({ ...b, untappd: b.untappd_url }));
       el.innerHTML = merged.concat(extra).map(beerCard).join("");
     });
   }
