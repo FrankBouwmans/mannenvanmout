@@ -992,6 +992,15 @@
 
   async function save() {
     if (!brew.name || !brew.name.trim()) { activeTabTo("basis"); alert("Geef het brouwsel eerst een naam."); return; }
+    // niet ongemerkt een nieuwere versie overschrijven (iemand anders, of een ander tabblad)
+    if (brew.id && brew.updated_at) {
+      const { data: cur } = await sb.from("brews").select("updated_at").eq("id", brew.id).maybeSingle();
+      if (cur && cur.updated_at && new Date(cur.updated_at).getTime() > new Date(brew.updated_at).getTime() + 1000) {
+        if (!confirm("Dit brouwsel is intussen ergens anders gewijzigd (door een andere brouwer of in een ander tabblad).\n\nOK = toch opslaan en die wijzigingen overschrijven\nAnnuleren = eerst de nieuwste versie laden")) {
+          dirty = false; viewBrew(brew.id); return;
+        }
+      }
+    }
     const btn = $("#save"); btn.disabled = true; $("#saveMsg").textContent = "Opslaan…";
     combineKettles();
     if (brew.untappd_url && !isUntappdUrl(brew.untappd_url)) { activeTabTo("proeven"); alert("De Untappd-link moet beginnen met https://untappd.com/ of https://untp.beer/."); return; }
