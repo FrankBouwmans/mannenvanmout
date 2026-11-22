@@ -390,3 +390,5 @@ input::-webkit-date-and-time-value{text-align:left}
 .untappd-rij .btn{flex-shrink:0}
 .beer .untappd-knop{align-self:flex-start;margin-top:auto;gap:6px;background:#ffc000;color:#1b0e08}
 .beer .untappd-knop:hover{background:#ffd34d}
+.show-sm{display:none}
+@media (max-width:640px){.show-sm{display:inline}}

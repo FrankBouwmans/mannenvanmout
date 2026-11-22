@@ -601,6 +601,10 @@
     const avg = (f) => { const xs = rows.filter((r) => r[f] != null); return xs.length ? Math.round((xs.reduce((a, r) => a + Number(r[f]), 0) / xs.length) * 100) / 100 : null; };
     brew.og = wavg("og"); brew.fg = wavg("fg"); brew.pre_boil_sg = wavg("pre_boil_sg");
     brew.mash_ph = avg("mash_ph"); brew.volume_l = sum("volume_l"); brew.bottled_l = sum("bottled_l");
+    // samengevoegd bij het bottelen: gemeten waarden van het mengsel gaan voor
+    const mix = (brew.kettle_values || {})._mix || {};
+    if (mix.fg) brew.fg = mix.fg;
+    if (mix.bottled_l) brew.bottled_l = mix.bottled_l;
   }
   const SG_FIELDS = ["target_og", "target_fg", "og", "fg", "pre_boil_sg"];
   const NUM_FIELDS = ["volume_l", "bottled_l", "target_abv", "ibu", "ebc", "efficiency_pct", "mash_ph", "ferment_temp_c", "priming_g_per_l", "boil_min"];
@@ -723,7 +727,7 @@
             <div class="field"><label>Temp °C</label><input id="m_t" inputmode="decimal" placeholder="19.5"></div>
             <div class="field"><label>pH</label><input id="m_ph" inputmode="decimal" placeholder=""></div>
             <div class="field" id="m_kettle_wrap" style="grid-column:1/-1;${multi() ? "" : "display:none"}"><label>Ketel</label>
-              <div class="row">${(brew.kettles || []).map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join("")}</div></div>
+              <div class="row">${(brew.kettles || []).concat(["Gemengd"]).map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join("")}</div></div>
             <div class="field" style="grid-column:1/-2"><label>Opmerking</label><input id="m_note" type="text" placeholder="Krausen ingezakt, ruikt naar banaan…"></div>
             <div class="field"><button class="btn" style="width:100%;justify-content:center">＋ Meting</button></div>
           </form>
@@ -755,7 +759,7 @@
         <button class="btn" id="save">Opslaan</button>
         <span id="saveMsg" class="hint"></span>
         <span class="spacer"></span>
-        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)" title="Kopie als nieuwe batch">Kopie<span class="hide-sm"> als nieuwe batch</span></button><button class="btn small danger" id="del" title="Verwijderen">Verwijder<span class="hide-sm">en</span></button>`}
+        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)" title="Kopie als nieuwe batch"><span class="hide-sm">Kopie als nieuwe batch</span><span class="show-sm">Kopie</span></button><button class="btn small danger" id="del" title="Verwijderen">Verwijderen</button>`}
       </div></div>`;
 
     // tabs
@@ -776,7 +780,7 @@
       }
       markDirty(); renderGemeten(); drawKpis();
       const w = $("#m_kettle_wrap");
-      if (w) { w.style.display = multi() ? "" : "none"; w.querySelector(".row").innerHTML = brew.kettles.map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join(""); }
+      if (w) { w.style.display = multi() ? "" : "none"; w.querySelector(".row").innerHTML = brew.kettles.concat(["Gemengd"]).map((k, i) => `<label style="display:flex;gap:6px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink);margin:0 14px 0 0"><input type="radio" name="m_kettle" value="${esc(k)}" style="width:auto" ${i === 0 ? "checked" : ""}> ${esc(k)}</label>`).join(""); }
     }));
     $$("#rating button").forEach((b) => (b.onclick = () => {
       const r = Number(b.dataset.r); brew.rating = brew.rating === r ? null : r;
@@ -882,6 +886,14 @@
             const v = kv(k)[f];
             return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="${esc(k)}|${f}|${t}" value="${v == null ? "" : t === "sg" ? esc(Number(v).toFixed(3)) : esc(v)}" placeholder="${ph}"></div>`;
           }).join("")}</div></div>`).join("")}
+        <div style="border-left:4px solid #8a6d50;padding-left:12px;margin-bottom:14px">
+          <div style="font-weight:700;margin-bottom:2px">Gemengd bij bottelen</div>
+          <p class="hint" style="margin:0 0 6px">Ketels samengevoegd voor het bottelen? Vul hier de SG van het mengsel in; die telt dan als eind-SG voor het hele brouwsel.</p>
+          <div class="grid g3">${[["fg", "Eind-SG mengsel", "1.008", "sg"], ["bottled_l", "Gebotteld totaal (L)", "40", "num"]].map(([f, l, ph, t]) => {
+            const v = kv("_mix")[f];
+            return `<div class="field"><label>${l}</label><input inputmode="decimal" data-kk="_mix|${f}|${t}" value="${v == null ? "" : t === "sg" ? esc(Number(v).toFixed(3)) : esc(v)}" placeholder="${ph}"></div>`;
+          }).join("")}</div>
+        </div>
         <div id="combined" class="msg info" style="margin-top:0"></div>
         <div class="grid g2">${extra}</div>
         <p class="hint">Het totaal (SG gewogen naar volume) wordt gebruikt voor de ABV op de site.</p>`;
@@ -891,7 +903,8 @@
   }
   function drawCombined() {
     const el = $("#combined"); if (!el) return;
-    el.innerHTML = `<b>Totaal:</b> OG ${fmtSG(brew.og)} · FG ${fmtSG(brew.fg)} · ${brew.og && brew.fg ? fmt1(abv(brew.og, brew.fg)) + "% ABV" : "ABV –"} · ${brew.volume_l ? fmt1(brew.volume_l) + " L" : "– L"}${brew.bottled_l ? ` · ${fmt1(brew.bottled_l)} L gebotteld` : ""}`;
+    const mixed = !!((brew.kettle_values || {})._mix || {}).fg;
+    el.innerHTML = `<b>Totaal:</b> OG ${fmtSG(brew.og)} · FG ${fmtSG(brew.fg)}${mixed ? " (mengsel)" : ""} · ${brew.og && brew.fg ? fmt1(abv(brew.og, brew.fg)) + "% ABV" : "ABV –"} · ${brew.volume_l ? fmt1(brew.volume_l) + " L" : "– L"}${brew.bottled_l ? ` · ${fmt1(brew.bottled_l)} L gebotteld` : ""}`;
   }
 
   function markDirty() { dirty = true; const m = $("#saveMsg"); if (m) m.textContent = "Niet-opgeslagen wijzigingen"; }
@@ -948,7 +961,14 @@
           return `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KETTLE_COLORS[i % KETTLE_COLORS.length]};margin-right:6px"></span><b>${esc(kn)}</b></td>
             <td>${fmtSG(v.og)}</td><td>${fmtSG(c)}${!v.fg && c ? ' <span class="hint">(meting)</span>' : ""}</td><td>${a2 ? fmt1(a2) + "%" : "–"}</td><td>${t2 ? Math.round(t2) + "%" : "–"}</td><td>${v.volume_l ? fmt1(v.volume_l) + " L" : "–"}</td>
             <td>${vs(e.bh, prof.brewhouse_eff, "%")}</td><td>${vs(e.mash, prof.mash_eff, "%")}</td><td>${vs(e.boil, prof.boil_loss_lh, " L/u")}</td></tr>`;
-        }).join("")}</tbody></table></div></div>`;
+        }).join("")}
+        ${multi() && (kv("_mix").fg || measurements.some((m) => m.sg && m.kettle === "Gemengd")) ? (() => {
+          const lm = [...measurements].reverse().find((m) => m.sg && m.kettle === "Gemengd");
+          const c = kv("_mix").fg || (lm && lm.sg) || null, a2 = abv(brew.og, c), t2 = attenuation(brew.og, c);
+          return `<tr style="background:#f7ecd4"><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#8a6d50;margin-right:6px"></span><b>Gemengd</b></td>
+            <td>${fmtSG(brew.og)} <span class="hint">(gewogen)</span></td><td>${fmtSG(c)}${!kv("_mix").fg && c ? ' <span class="hint">(meting)</span>' : ""}</td><td>${a2 ? fmt1(a2) + "%" : "–"}</td><td>${t2 ? Math.round(t2) + "%" : "–"}</td>
+            <td>${kv("_mix").bottled_l ? fmt1(kv("_mix").bottled_l) + " L <span class='hint'>gebotteld</span>" : "–"}</td><td></td><td></td><td></td></tr>`;
+        })() : ""}</tbody></table></div></div>`;
     }
   }
 
@@ -1015,7 +1035,7 @@
     if (error) return alert(/kettle/i.test(error.message) ? "De database kent de ketels nog niet. Draai eerst de ketel-SQL in Supabase." : error.message);
     measurements.push(data); measurements.sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at));
     // eerste SG-meting = OG als die nog leeg is
-    if (multi() && data.kettle) {
+    if (multi() && data.kettle && data.kettle !== "Gemengd") {
       if (!kv(data.kettle).og && data.sg && measurements.filter((m) => m.sg && m.kettle === data.kettle).length === 1) {
         kv(data.kettle).og = data.sg; combineKettles(); renderGemeten(); markDirty();
       }
@@ -1036,7 +1056,7 @@
     const host = $("#mlist"); if (!host) return;
     const t = $(`#tabs button[data-t="metingen"]`); if (t) t.textContent = "Metingen" + (measurements.length ? ` (${measurements.length})` : "");
     if (!measurements.length) { host.innerHTML = `<p class="hint">Nog geen metingen. Pak de hydrometer of refractometer!</p>`; $("#chart").innerHTML = ""; return; }
-    const ogFor = (m) => (multi() && m.kettle && kv(m.kettle).og) || brew.og || (measurements.find((x) => x.sg && (!multi() || x.kettle === m.kettle)) || {}).sg;
+    const ogFor = (m) => (multi() && m.kettle && ((brew.kettle_values || {})[m.kettle] || {}).og) || brew.og || (measurements.find((x) => x.sg && (!multi() || x.kettle === m.kettle)) || {}).sg;
     const showK = multi() || measurements.some((m) => m.kettle && (brew.kettles || []).length > 1);
     host.innerHTML = `<div class="tablewrap"><table class="list"><thead><tr><th>Wanneer</th>${showK ? "<th>Ketel</th>" : ""}<th>SG</th><th>°P</th><th>ABV</th><th>°C</th><th>pH</th><th>Opmerking</th><th></th></tr></thead><tbody>
       ${measurements.map((m) => { const og = ogFor(m); return `<tr><td>${fmtDateTime(m.measured_at)}</td>${showK ? `<td>${esc(m.kettle || "–")}</td>` : ""}<td><b>${fmtSG(m.sg)}</b></td><td>${m.sg ? fmt1(plato(m.sg)) : ""}</td>
@@ -1052,7 +1072,7 @@
     const kettles = multi() ? brew.kettles : [];
     const series = kettles.length
       ? kettles.map((k, i) => ({ name: k, color: KETTLE_COLORS[i % KETTLE_COLORS.length], pts: all.filter((p) => p.k === k) }))
-          .concat([{ name: "Algemeen", color: "#8a6d50", pts: all.filter((p) => !p.k || !kettles.includes(p.k)) }]).filter((s) => s.pts.length)
+          .concat([{ name: "Gemengd", color: "#8a6d50", pts: all.filter((p) => !p.k || !kettles.includes(p.k)) }]).filter((s) => s.pts.length)
       : [{ name: "SG", color: "#7d1d1d", pts: all }];
     const W = 720, H = 260, L = 56, R = 16, T = series.length > 1 ? 30 : 16, B = 34;
     const t0 = Math.min(...all.map((p) => p.t)), t1 = Math.max(...all.map((p) => p.t)) || t0 + 1;
