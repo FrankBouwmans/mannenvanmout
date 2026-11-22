@@ -303,7 +303,7 @@
       <div class="card" style="margin-top:16px">
         <h2>Over dit bier</h2>
         <div class="grid g2">
-          <div class="field"><label for="b_name">Naam (zoals op het etiket)</label><input id="b_name" type="text" value="${esc(beer.name)}"></div>
+          <div class="field"><label for="b_name">Naam</label><input id="b_name" type="text" value="${esc(beer.name)}"></div>
           <div class="field"><label for="b_style">Stijl</label><input id="b_style" type="text" value="${esc(beer.style || "")}" placeholder="Belgische tripel"></div>
         </div>
         <label style="display:flex;gap:10px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink)">
@@ -1053,7 +1053,7 @@
     if (!Array.isArray(brew[key])) brew[key] = [];
     const draw = () => {
       const rows = brew[key];
-      host.innerHTML = `<div class="tablewrap"><table class="list edit"><thead><tr>${cols.map((c) => `<th style="${c.w ? `width:${c.w}` : ""}">${c.l}</th>`).join("")}<th></th></tr></thead><tbody>
+      host.innerHTML = `<div class="tablewrap"><table class="list edit n${cols.length - 1}"><thead><tr>${cols.map((c) => `<th style="${c.w ? `width:${c.w}` : ""}">${c.l}</th>`).join("")}<th></th></tr></thead><tbody>
         ${rows.map((r, i) => `<tr>${cols.map((c, ci) => `<td data-l="${esc(c.l)}" class="${ci === 0 ? "first" : ""}">${c.opts
           ? `<select data-i="${i}" data-c="${c.k}">${c.opts.map((o) => `<option ${r[c.k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`
           : `<input data-i="${i}" data-c="${c.k}" value="${esc(r[c.k] ?? "")}" placeholder="${esc(c.ph || "")}" ${c.n ? `inputmode="decimal"` : ""}>`}</td>`).join("")}

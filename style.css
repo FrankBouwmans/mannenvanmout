@@ -362,7 +362,8 @@ input::-webkit-date-and-time-value{text-align:left}
 /* formulieren op de telefoon: alle velden even hoog, labels netjes uitgelijnd */
 @media (max-width:640px){
   .grid > .field > input:not([type=checkbox]):not([type=radio]), .grid > .field > select{height:48px;min-height:48px}
-  #gemeten .grid > .field > label{min-height:2.6em}
+  .g2 > .field > label,.g3 > .field > label,.g4 > .field > label{min-height:3.3em;display:flex;align-items:flex-end;line-height:1.35}
+  table.list.edit.n4 tr{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 /* brouwlog: kop van de lijst */
