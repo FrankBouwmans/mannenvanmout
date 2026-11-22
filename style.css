@@ -392,3 +392,13 @@ input::-webkit-date-and-time-value{text-align:left}
 .beer .untappd-knop:hover{background:#ffd34d}
 .show-sm{display:none}
 @media (max-width:640px){.show-sm{display:inline}}
+
+/* bieren & batches */
+.batchnr{font-family:var(--sans);font-size:.5em;font-weight:600;color:var(--muted);vertical-align:middle;white-space:nowrap}
+.msg.les,.card.les{border-left:4px solid var(--gold)}
+.card.les p{margin:0 0 10px}
+table.vergelijk tbody tr{cursor:pointer}
+table.vergelijk tbody tr:hover{background:#fff4dc}
+.kies-bier{display:grid;gap:8px}
+.kies-bier a{display:flex;flex-direction:column;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-decoration:none}
+.kies-bier a:hover{border-color:var(--gold);background:#fff4dc}

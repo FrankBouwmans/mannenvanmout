@@ -134,7 +134,9 @@
     if (!profilesLoaded) await loadProfiles();
     const h = location.hash || "#/";
     if (h.startsWith("#/b/")) return viewBrew(h.slice(4));
-    if (h === "#/nieuw") return viewBrew(null);
+    if (h.startsWith("#/bier/")) return viewBeer(h.slice(7));
+    if (h.startsWith("#/nieuw?bier=")) return newBatch(h.slice(13));
+    if (h === "#/nieuw") return viewNew();
     if (h === "#/import") return viewImport();
     if (h === "#/ketels") return viewKettles();
     if (h === "#/brouwers") return viewBrewers();
@@ -200,64 +202,212 @@
     };
   }
 
-  /* ---------- Lijst ---------- */
-  let cacheList = [];
+  /* ---------- Lijst: bieren ---------- */
+  const ICON = (d) => `<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const batchAbv = (b) => { const base = abv(Number(b.og), Number(b.fg)); return base ? base + primeAbv(b.priming_g_per_l) : (b.target_abv != null ? Number(b.target_abv) : null); };
+  const byDate = (a, b) => String(a.brew_date || "9999").localeCompare(String(b.brew_date || "9999"));
+  let cacheBeers = [];
   async function viewList() {
-    main.innerHTML = `<div class="empty">Brouwsels ophalen…</div>`;
-    const [{ data: me }, { data, error }] = await Promise.all([
+    main.innerHTML = `<div class="empty">Bieren ophalen…</div>`;
+    const [{ data: me }, bq, rq] = await Promise.all([
       sb.from("members").select("email").limit(1),
-      sb.from("brews").select("*").order("brew_date", { ascending: false, nullsFirst: true })
+      sb.from("beers").select("*").order("name"),
+      sb.from("brews").select("id,beer_id,name,style,batch_no,status,brew_date,og,fg,target_abv,priming_g_per_l,kettles,rating")
     ]);
+    const error = bq.error || rq.error;
     if (error) { main.innerHTML = `<div class="msg err">Fout bij ophalen: ${esc(error.message)}</div>`; return; }
     if (!me || me.length === 0) {
-      main.innerHTML = `<div class="card login"><h1>Geen toegang</h1><p>Je bent ingelogd als <b>${esc(session.user.email)}</b>, maar dit adres staat (nog) niet op de ledenlijst.</p><p class="hint">Vraag een van de mannen om je e-mailadres toe te voegen aan de tabel <code>members</code> in Supabase.</p></div>`;
+      main.innerHTML = `<div class="card login"><h1>Geen toegang</h1><p>Je bent ingelogd als <b>${esc(session.user.email)}</b>, maar dit adres staat (nog) niet op de ledenlijst.</p><p class="hint">Vraag een van de mannen om je e-mailadres toe te voegen.</p></div>`;
       return;
     }
-    cacheList = data || [];
+    const brews = rq.data || [];
+    cacheBeers = (bq.data || []).map((be) => {
+      const bs = brews.filter((b) => b.beer_id === be.id).sort(byDate);
+      return Object.assign({}, be, { batches: bs, last: bs[bs.length - 1] || null });
+    }).sort((a, b) => String((b.last || {}).brew_date || "").localeCompare(String((a.last || {}).brew_date || "")));
     main.innerHTML = `
       <div class="lijst-kop">
         <div><h1 style="margin:0">Brouwlog</h1>
-          <p class="hint" style="margin:2px 0 0">${cacheList.length} brouwsel${cacheList.length === 1 ? "" : "s"} · alles wat we ooit (bijna) goed deden</p></div>
-        <a class="btn nieuw" href="#/nieuw"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuw brouwsel</a>
+          <p class="hint" style="margin:2px 0 0">${cacheBeers.length} bier${cacheBeers.length === 1 ? "" : "en"} · ${brews.length} batch${brews.length === 1 ? "" : "es"} · alles wat we ooit (bijna) goed deden</p></div>
+        <a class="btn nieuw" href="#/nieuw">${ICON('<path d="M12 5v14M5 12h14"/>')}Nieuwe batch</a>
       </div>
       <nav class="snelmenu" aria-label="Beheer">
-        <a href="#/brouwers"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg><span>Brouwers</span></a>
-        <a href="#/ketels"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z"/><path d="M3 8h18M9 4h6M10 4v4M14 4v4M19 11h2v4h-2"/></svg><span>Ketels</span></a>
-        <a href="#/import"><svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Importeren</span></a>
+        <a href="#/brouwers">${ICON('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}<span>Brouwers</span></a>
+        <a href="#/ketels">${ICON('<path d="M5 8h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z"/><path d="M3 8h18M9 4h6M10 4v4M14 4v4M19 11h2v4h-2"/>')}<span>Ketels</span></a>
+        <a href="#/import">${ICON('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>')}<span>Importeren</span></a>
       </nav>
       <div class="toolbar zoekbalk">
-        <input id="q" type="search" placeholder="Zoek op naam, stijl of batch…" aria-label="Zoeken">
-        <select id="st" aria-label="Status"><option value="">Alle statussen</option>${STATUSES.map((s) => `<option>${s}</option>`).join("")}</select>
+        <input id="q" type="search" placeholder="Zoek op bier of stijl…" aria-label="Zoeken">
+        <select id="st" aria-label="Status laatste batch"><option value="">Alle statussen</option>${STATUSES.map((s) => `<option>${s}</option>`).join("")}</select>
       </div>
       <div class="brews" id="list"></div>`;
     const draw = () => {
       const q = $("#q").value.toLowerCase(), st = $("#st").value;
-      const items = cacheList.filter((b) => (!st || b.status === st) && (!q || [b.name, b.style, b.batch_no].join(" ").toLowerCase().includes(q)));
-      $("#list").innerHTML = items.length ? items.map(card).join("") :
-        `<div class="empty" style="grid-column:1/-1">Nog niks hier. Tijd om de ketel aan te zetten! 🔥<br><br><a class="btn" href="#/nieuw">Eerste brouwsel toevoegen</a></div>`;
+      const items = cacheBeers.filter((b) => (!st || (b.last && b.last.status === st)) && (!q || [b.name, b.style].join(" ").toLowerCase().includes(q)));
+      $("#list").innerHTML = items.length ? items.map(beerCard).join("") :
+        `<div class="empty" style="grid-column:1/-1">Nog niks hier. Tijd om de ketel aan te zetten!<br><br><a class="btn" href="#/nieuw">Eerste bier toevoegen</a></div>`;
     };
     $("#q").oninput = draw; $("#st").onchange = draw; draw();
   }
-  function card(b) {
-    // onafgerond uit OG/FG rekenen, anders telt de afronding dubbel mee
-    const base = abv(Number(b.og), Number(b.fg)) ?? b.abv;
-    const a = base ? Number(base) + primeAbv(b.priming_g_per_l) : base;
-    return `<a class="card brew" href="#/b/${b.id}">
-      <div class="row"><span class="badge ${b.status}">${esc(b.status)}</span>${b.is_public ? `<span class="badge pub">publiek</span>` : ""}<span class="spacer"></span>${b.rating ? "★".repeat(b.rating) : ""}</div>
-      <h3 style="margin-top:8px">${esc(b.name)}</h3>
-      <div class="sub">${esc(b.style || "")}${b.batch_no ? ` · batch ${esc(b.batch_no)}` : ""}${b.brew_date ? ` · ${fmtDate(b.brew_date)}` : ""}</div>
-      ${(b.kettles || []).length ? `<div class="sub" style="margin-top:4px">Ketel: ${(b.kettles || []).map(esc).join(" + ")}</div>` : ""}
-      <div class="stats">
-        <span class="stat">OG <b>${fmtSG(b.og)}</b></span>
-        <span class="stat">FG <b>${fmtSG(b.fg)}</b></span>
+  function beerCard(be) {
+    const l = be.last, a = l ? batchAbv(l) : null, n = be.batches.length;
+    return `<a class="card brew" href="#/bier/${be.id}">
+      <div class="row">${l ? `<span class="badge ${l.status}">${esc(l.status)}</span>` : `<span class="badge">nog geen batch</span>`}${be.is_public ? `<span class="badge pub">publiek</span>` : ""}<span class="spacer"></span><span class="hint">${n} batch${n === 1 ? "" : "es"}</span></div>
+      <h3 style="margin-top:8px">${esc(be.name)}</h3>
+      <div class="sub">${esc(be.style || "")}${l ? ` · laatste: batch #${esc(l.batch_no || "?")}${l.brew_date ? `, ${fmtDate(l.brew_date)}` : ""}` : ""}</div>
+      ${l ? `<div class="stats">
+        <span class="stat">OG <b>${fmtSG(l.og)}</b></span>
+        <span class="stat">FG <b>${fmtSG(l.fg)}</b></span>
         <span class="stat">ABV <b>${a ? fmt1(a) + "%" : "–"}</b></span>
-      </div></a>`;
+      </div>` : ""}</a>`;
   }
 
+  /* ---------- Bier: instellingen, batches vergelijken, Untappd ---------- */
+  let beer = null;
+  async function loadBeer(id) {
+    const { data } = await sb.from("beers").select("*").eq("id", id).maybeSingle();
+    return data;
+  }
+  async function viewBeer(id) {
+    dirty = false;
+    main.innerHTML = `<div class="empty">Bier ophalen…</div>`;
+    const [be, rq] = await Promise.all([loadBeer(id), sb.from("brews").select("*").eq("beer_id", id)]);
+    if (!be) { main.innerHTML = `<div class="msg err">Bier niet gevonden. <a href="#/">Terug</a></div>`; return; }
+    beer = be;
+    const batches = (rq.data || []).sort(byDate);
+    let tq = { data: [] };
+    if (batches.length) tq = await sb.from("tastings").select("brew_id,aroma,appearance,flavor,mouthfeel,overall").in("brew_id", batches.map((b) => b.id));
+    const scores = {};
+    (tq.data || []).forEach((t) => { (scores[t.brew_id] = scores[t.brew_id] || []).push(tTotal(t)); });
+    const avgScore = (id) => { const xs = scores[id] || []; return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; };
+    const last = batches[batches.length - 1];
+    const lessons = batches.filter((b) => b.next_time && b.next_time.trim());
+    main.innerHTML = `
+      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p>
+      <div class="lijst-kop">
+        <div><h1 style="margin:0" id="title">${esc(beer.name)}</h1>
+          <p class="hint" style="margin:2px 0 0">${esc(beer.style || "")}${beer.is_public ? " · staat op mannenvanmout.nl" : ""}</p></div>
+        <a class="btn nieuw" href="#/nieuw?bier=${beer.id}">${ICON('<path d="M12 5v14M5 12h14"/>')}Nieuwe batch</a>
+      </div>
+      ${lessons.length ? `<div class="card les" style="margin-bottom:16px"><h2>Lessen voor de volgende keer</h2>
+        ${lessons.slice().reverse().map((b) => `<p><b>Batch #${esc(b.batch_no)}</b> <span class="hint">${fmtDate(b.brew_date)}</span><br><span style="white-space:pre-line">${esc(b.next_time)}</span></p>`).join("")}</div>` : ""}
+      <div class="card">
+        <h2>Batches</h2>
+        ${batches.length ? `<div class="tablewrap"><table class="list vergelijk"><thead><tr><th>Batch</th><th>Brouwdatum</th><th>Status</th><th>Ketel</th><th>OG</th><th>FG</th><th>ABV</th><th>Vergisting</th><th>Gebotteld</th><th>Proefscore</th></tr></thead><tbody>
+          ${batches.slice().reverse().map((b) => { const a = batchAbv(b), t = attenuation(Number(b.og), Number(b.fg)), sc = avgScore(b.id);
+            return `<tr data-go="${b.id}"><td><a href="#/b/${b.id}"><b>#${esc(b.batch_no || "?")}</b></a></td><td>${fmtDate(b.brew_date)}</td><td><span class="badge ${b.status}">${esc(b.status)}</span></td>
+              <td>${(b.kettles || []).map(esc).join(" + ") || "–"}</td><td>${fmtSG(b.og)}</td><td>${fmtSG(b.fg)}</td><td>${a ? fmt1(a) + "%" : "–"}</td><td>${t ? Math.round(t) + "%" : "–"}</td>
+              <td>${b.bottled_l ? fmt1(b.bottled_l) + " L" : "–"}</td><td>${sc != null ? `<b>${fmt1(sc)}</b>/50` : "–"}</td></tr>`; }).join("")}
+        </tbody></table></div>` : `<p class="hint">Nog geen batches. Klik op <b>Nieuwe batch</b> om de eerste te starten.</p>`}
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Over dit bier</h2>
+        <div class="grid g2">
+          <div class="field"><label for="b_name">Naam (zoals op het etiket)</label><input id="b_name" type="text" value="${esc(beer.name)}"></div>
+          <div class="field"><label for="b_style">Stijl</label><input id="b_style" type="text" value="${esc(beer.style || "")}" placeholder="Belgische tripel"></div>
+        </div>
+        <label style="display:flex;gap:10px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink)">
+          <input type="checkbox" id="b_pub" style="width:auto" ${beer.is_public ? "checked" : ""}>
+          Toon dit bier op mannenvanmout.nl (naam, stijl, laatste batch, ABV, omschrijving en Untappd-link)
+        </label>
+        <div class="field" style="margin-top:12px"><label for="b_desc">Publieke omschrijving</label>
+          <textarea id="b_desc" placeholder="Een karaktervolle tripel, goud van kleur…">${esc(beer.public_description || "")}</textarea></div>
+        <div class="field"><label for="b_untappd">Untappd-link</label>
+          <input id="b_untappd" type="url" inputmode="url" placeholder="https://untappd.com/b/mannen-van-mout-…/1234567" value="${esc(beer.untappd_url || "")}"></div>
+        <div class="row"><button class="btn" id="b_save">Bier opslaan</button><span class="hint" id="b_msg"></span><span class="spacer"></span>
+          ${batches.length ? "" : `<button class="btn small danger" id="b_del">Bier verwijderen</button>`}</div>
+      </div>
+      <div class="card" style="margin-top:16px" id="untappdCard"></div>`;
+    $$("[data-go]", main).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("a")) location.hash = "#/b/" + tr.dataset.go; }));
+    renderUntappd(beer, last);
+    $("#b_save").onclick = async () => {
+      const name = $("#b_name").value.trim(), url = $("#b_untappd").value.trim();
+      if (!name) return alert("Geef het bier een naam.");
+      if (url && !isUntappdUrl(url)) return alert("De Untappd-link moet beginnen met https://untappd.com/ of https://untp.beer/.");
+      const upd = { name, style: $("#b_style").value.trim() || null, is_public: $("#b_pub").checked, public_description: $("#b_desc").value.trim() || null, untappd_url: url || null };
+      const { error } = await sb.from("beers").update(upd).eq("id", beer.id);
+      if (error) { $("#b_msg").innerHTML = `<span style="color:#a33">${esc(/duplicate|unique/i.test(error.message) ? "Er bestaat al een bier met die naam." : error.message)}</span>`; return; }
+      if (name !== beer.name || upd.style !== beer.style) await sb.from("brews").update({ name, style: upd.style }).eq("beer_id", beer.id);
+      $("#b_msg").textContent = "Opgeslagen ✓";
+      setTimeout(() => viewBeer(beer.id), 500);
+    };
+    if ($("#b_del")) $("#b_del").onclick = async () => {
+      if (!confirm(`“${beer.name}” verwijderen?`)) return;
+      const { error } = await sb.from("beers").delete().eq("id", beer.id);
+      if (error) return alert(error.message);
+      location.hash = "#/";
+    };
+  }
+
+  /* ---------- Nieuwe batch / nieuw bier ---------- */
+  async function viewNew() {
+    main.innerHTML = `<div class="empty">Bieren ophalen…</div>`;
+    const { data } = await sb.from("beers").select("id,name,style").order("name");
+    const beers = data || [];
+    main.innerHTML = `
+      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p>
+      <h1 style="margin:0 0 12px">Nieuwe batch</h1>
+      <div class="grid g2" style="align-items:start">
+        <div class="card"><h2>Bestaand bier opnieuw brouwen</h2>
+          <p class="hint" style="margin-top:0">Het recept van de vorige batch wordt overgenomen; het batchnummer telt automatisch door.</p>
+          ${beers.length ? `<div class="kies-bier">${beers.map((b) => `<a href="#/nieuw?bier=${b.id}"><b>${esc(b.name)}</b><span class="hint">${esc(b.style || "")}</span></a>`).join("")}</div>` : `<p class="hint">Nog geen bieren.</p>`}
+        </div>
+        <div class="card"><h2>Nieuw bier</h2>
+          <form id="nbf">
+            <div class="field"><label for="nb_name">Naam (zoals op het etiket) *</label><input id="nb_name" type="text" required placeholder="Bijv. Hopsnuiver IPA"></div>
+            <div class="field"><label for="nb_style">Stijl</label><input id="nb_style" type="text" placeholder="American IPA"></div>
+            <button class="btn">Bier aanmaken en eerste batch starten</button> <span class="hint" id="nb_msg"></span>
+          </form>
+        </div>
+      </div>`;
+    $("#nbf").onsubmit = async (e) => {
+      e.preventDefault();
+      const name = $("#nb_name").value.trim(); if (!name) return;
+      const { data: be, error } = await sb.from("beers").insert({ name, style: $("#nb_style").value.trim() || null }).select().single();
+      if (error) { $("#nb_msg").innerHTML = `<span style="color:#a33">${esc(/duplicate|unique/i.test(error.message) ? "Dit bier bestaat al; kies het links." : error.message)}</span>`; return; }
+      location.hash = "#/nieuw?bier=" + be.id;
+    };
+  }
+
+  async function newBatch(beerId, fromId) {
+    dirty = false;
+    main.innerHTML = `<div class="empty">Batch klaarzetten…</div>`;
+    const [be, rq] = await Promise.all([loadBeer(beerId), sb.from("brews").select("*").eq("beer_id", beerId)]);
+    if (!be) { main.innerHTML = `<div class="msg err">Bier niet gevonden. <a href="#/">Terug</a></div>`; return; }
+    beer = be;
+    const batches = (rq.data || []).sort(byDate);
+    const src = (fromId && batches.find((b) => b.id === fromId)) || batches[batches.length - 1];
+    const maxNo = batches.reduce((m, b) => Math.max(m, parseInt(b.batch_no, 10) || 0), 0);
+    if (src) {
+      const copy = JSON.parse(JSON.stringify(src));
+      ["id", "created_at", "updated_at", "created_by", "abv"].forEach((k) => delete copy[k]);
+      Object.assign(copy, { og: null, fg: null, pre_boil_sg: null, mash_ph: null, bottled_l: null, bottle_date: null, tasting_notes: "", rating: null,
+        status: "gepland", brew_date: new Date().toISOString().slice(0, 10), kettle_values: {}, next_time: "", volume_l: null });
+      brew = copy;
+      prevLesson = src.next_time && src.next_time.trim() ? { no: src.batch_no, text: src.next_time } : null;
+    } else {
+      brew = JSON.parse(JSON.stringify(EMPTY));
+      if (KETTLES.length === 1) brew.kettles = [KETTLES[0]];
+      prevLesson = null;
+    }
+    Object.assign(brew, { beer_id: be.id, name: be.name, style: be.style, batch_no: String(maxNo + 1) });
+    measurements = []; tastings = []; activeTab = "basis";
+    renderBrew(); markDirty();
+    $("#saveMsg").textContent = src ? `Recept van batch #${src.batch_no} overgenomen – vergeet niet op te slaan` : "Nieuwe batch – vergeet niet op te slaan";
+  }
+  let prevLesson = null;
 
   /* ---------- Importeren (Grainfather, BeerXML) ---------- */
   async function saveImported(item) {
     const { brew: b, measurements: ms } = item;
+    let { data: be } = await sb.from("beers").select("id,name,style").eq("name", b.name).maybeSingle();
+    if (!be) {
+      const r = await sb.from("beers").insert({ name: b.name, style: b.style || null }).select().single();
+      if (r.error) throw new Error(r.error.message);
+      be = r.data;
+    }
+    const { count } = await sb.from("brews").select("id", { count: "exact", head: true }).eq("beer_id", be.id);
+    b.beer_id = be.id; b.batch_no = String((count || 0) + 1);
     const { data, error } = await sb.from("brews").insert(b).select("id").single();
     if (error) throw new Error(error.message);
     if (ms && ms.length) {
@@ -316,54 +466,45 @@
 
   /* ---------- Untappd: gegevens klaarzetten + link ---------- */
   const isUntappdUrl = (u) => /^https:\/\/(www\.)?(untappd\.com|untp\.beer)\//i.test(String(u || "").trim());
-  function untappdFields() {
-    // gemeten ABV inclusief hergisting op fles (bottelsuiker); anders het doel
-    const measured = brew.og && brew.fg ? abv(brew.og, brew.fg) + primeAbv(brew.priming_g_per_l) : null;
-    const a = measured ?? brew.target_abv;
-    const feat = (cfg.featuredBeers || []).find((f) => f.name.toLowerCase() === String(brew.name || "").toLowerCase());
+  function untappdFields(be, last) {
+    const a = last ? batchAbv(last) : null;
+    const feat = (cfg.featuredBeers || []).find((f) => [f.name, f.brew].filter(Boolean).some((n) => n.toLowerCase() === String(be.name || "").toLowerCase()));
     return {
       rows: [
-        ["Naam bier", brew.name || ""],
+        ["Naam bier", be.name || ""],
         ["Brouwerij", "Mannen Van Mout"],
-        ["Stijl", brew.style || ""],
+        ["Stijl", be.style || ""],
         ["ABV (%)", a ? (Math.round(a * 10) / 10).toString() : ""],
-        ["IBU", brew.ibu != null ? String(brew.ibu) : ""],
-        ["Omschrijving", brew.public_description || (feat && feat.description) || ""]
+        ["IBU", last && last.ibu != null ? String(last.ibu) : ""],
+        ["Omschrijving", be.public_description || (feat && feat.description) || ""]
       ],
       label: feat && (feat.image || "").split("?")[0]
     };
   }
-  function renderUntappd() {
+  function renderUntappd(be, last) {
     const host = $("#untappdCard"); if (!host) return;
-    const { rows, label } = untappdFields();
+    const { rows, label } = untappdFields(be, last);
     const missing = rows.filter(([, v]) => !v).map(([l]) => l);
     host.innerHTML = `
       <h2>Untappd</h2>
-      <p class="hint" style="margin-top:0">Untappd heeft geen koppeling om bieren automatisch toe te voegen. Hieronder staat alles klaar om te kopiëren; voeg het bier daarna toe in de Untappd-app bij de brouwerij <b>Mannen Van Mout</b>.</p>
+      <p class="hint" style="margin-top:0">Untappd heeft geen koppeling om bieren automatisch toe te voegen. Hieronder staat alles klaar om te kopiëren (ABV en IBU van de laatste batch, incl. bottelsuiker); voeg het bier daarna toe in de Untappd-app bij de brouwerij <b>Mannen Van Mout</b> en plak de link hierboven.</p>
       <div class="untappd-lijst">
         ${rows.map(([l, v], i) => `<div class="untappd-rij"><div><small>${esc(l)}</small><span>${v ? esc(v) : '<i class="hint">nog leeg</i>'}</span></div>
           ${v ? `<button type="button" class="btn small ghost" style="color:var(--red)" data-copy="${i}">Kopieer</button>` : ""}</div>`).join("")}
       </div>
-      ${missing.length ? `<p class="hint">Nog in te vullen: ${esc(missing.join(", "))}. ABV komt uit OG/FG, de omschrijving uit "Publieke omschrijving" hierboven.</p>` : ""}
-      <div class="row" style="margin:12px 0 18px">
+      ${missing.length ? `<p class="hint">Nog leeg: ${esc(missing.join(", "))}.</p>` : ""}
+      <div class="row" style="margin-top:12px">
         <button type="button" class="btn small" id="copyAll">Alles kopiëren</button>
         ${label ? `<a class="btn small ghost" style="color:var(--red)" href="${esc(label)}" download>Etiket downloaden</a>` : ""}
-        <a class="btn small ghost" style="color:var(--red)" href="https://untappd.com/search?q=${encodeURIComponent(brew.name || "Mannen van Mout")}" target="_blank" rel="noopener">Zoek op Untappd</a>
-      </div>
-      <div class="field" style="margin-bottom:4px"><label for="f_untappd_url">Untappd-link van dit bier</label>
-        <input id="f_untappd_url" data-k="untappd_url" type="url" inputmode="url" placeholder="https://untappd.com/b/mannen-van-mout-…/1234567" value="${esc(brew.untappd_url || "")}"></div>
-      <p class="hint" id="untappdHint">Staat het bier op Untappd? Plak hier de link (in de app: Delen → Kopieer link). Bij publieke bieren verschijnt dan op de site de knop "Check in op Untappd".</p>`;
+        ${be.untappd_url ? `<a class="btn small ghost" style="color:var(--red)" href="${esc(be.untappd_url)}" target="_blank" rel="noopener">Open op Untappd</a>`
+          : `<a class="btn small ghost" style="color:var(--red)" href="https://untappd.com/search?q=${encodeURIComponent(be.name || "Mannen van Mout")}" target="_blank" rel="noopener">Zoek op Untappd</a>`}
+      </div>`;
     const copy = async (text, btn) => {
       try { await navigator.clipboard.writeText(text); const o = btn.textContent; btn.textContent = "Gekopieerd ✓"; setTimeout(() => (btn.textContent = o), 1400); }
       catch (e) { prompt("Kopiëren lukte niet automatisch. Selecteer en kopieer:", text); }
     };
     $$("[data-copy]", host).forEach((b) => (b.onclick = () => copy(rows[Number(b.dataset.copy)][1], b)));
     $("#copyAll").onclick = (e) => copy(rows.filter(([, v]) => v).map(([l, v]) => `${l}: ${v}`).join("\n"), e.currentTarget);
-    bindFields(host);
-    $("#f_untappd_url").addEventListener("input", (e) => {
-      const v = e.target.value.trim();
-      $("#untappdHint").innerHTML = !v || isUntappdUrl(v) ? 'Plak de link van het bier op Untappd (in de app: Delen → Kopieer link).' : '<span style="color:#a33">Dit lijkt geen Untappd-link. Gebruik een link die begint met https://untappd.com/ of https://untp.beer/.</span>';
-    });
   }
 
   /* ---------- Proefmomenten (scoreformulier, BJCP-schaal) ---------- */
@@ -589,8 +730,8 @@
     volume_l: null, bottled_l: null, target_og: null, target_fg: null, target_abv: null, ibu: null, ebc: null, efficiency_pct: null,
     og: null, fg: null, pre_boil_sg: null, mash_ph: null, ferment_temp_c: null, priming_g_per_l: null,
     fermentables: [], hops: [], yeast: "", others: [], mash_schedule: "", water_notes: "", process_notes: "",
-    tasting_notes: "", rating: null, is_public: false, public_description: "",
-    kettles: [], kettle_values: {}, boil_min: null, ferment_schedule: [], untappd_url: ""
+    tasting_notes: "", rating: null,
+    kettles: [], kettle_values: {}, boil_min: null, ferment_schedule: [], beer_id: null, next_time: ""
   };
   const multi = () => (brew.kettles || []).length >= 2;
   const kv = (k) => { brew.kettle_values = brew.kettle_values || {}; return (brew.kettle_values[k] = brew.kettle_values[k] || {}); };
@@ -633,14 +774,12 @@
       tastings = (tq && !tq.error && tq.data) || []; tastingsMissing = !!(tq && tq.error);
       if (error || !data) { main.innerHTML = `<div class="msg err">Brouwsel niet gevonden. <a href="#/">Terug</a></div>`; return; }
       brew = data; measurements = m.data || [];
+      beer = brew.beer_id ? await loadBeer(brew.beer_id) : null;
+      prevLesson = null;
       if (!Array.isArray(brew.kettles)) brew.kettles = [];
       if (!brew.kettle_values || typeof brew.kettle_values !== "object") brew.kettle_values = {};
       if (!Array.isArray(brew.ferment_schedule)) brew.ferment_schedule = [];
-    } else {
-      brew = JSON.parse(JSON.stringify(EMPTY)); measurements = []; tastings = [];
-      if (KETTLES.length === 1) brew.kettles = [KETTLES[0]];
-      activeTab = "basis";
-    }
+    } else { location.hash = "#/nieuw"; return; }
     renderBrew();
   }
 
@@ -654,24 +793,21 @@
   function renderBrew() {
     const isNew = !brew.id;
     main.innerHTML = `
-      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle brouwsels</a></p>
-      <div class="row"><h1 style="margin:0" id="title">${esc(brew.name || "Nieuw brouwsel")}</h1>
+      <p style="margin:0 0 6px">${beer ? `<a href="#/bier/${beer.id}" style="color:var(--muted)">← ${esc(beer.name)}: alle batches</a>` : `<a href="#/" style="color:var(--muted)">← alle bieren</a>`}</p>
+      <div class="row"><h1 style="margin:0" id="title">${esc((beer && beer.name) || brew.name || "Batch")} <span class="batchnr">batch #${esc(brew.batch_no || "?")}</span></h1>
         <span class="badge ${brew.status}" id="statBadge">${esc(brew.status)}</span></div>
+      ${prevLesson ? `<div class="msg info les"><b>Les van batch #${esc(prevLesson.no)}:</b> <span style="white-space:pre-line">${esc(prevLesson.text)}</span></div>` : ""}
       <div class="kpis" id="kpis"></div>
       <div class="tabs" id="tabs">
-        ${[["basis", "Basis & cijfers"], ["recept", "Recept"], ["metingen", "Metingen" + (measurements.length ? ` (${measurements.length})` : "")], ["proeven", "Proeven & publiek"]]
+        ${[["basis", "Basis & cijfers"], ["recept", "Recept"], ["metingen", "Metingen" + (measurements.length ? ` (${measurements.length})` : "")], ["proeven", "Proeven"]]
           .map(([k, l]) => `<button data-t="${k}" class="${activeTab === k ? "on" : ""}">${l}</button>`).join("")}
       </div>
 
       <div class="pane" data-p="basis">
         <div class="card">
           <h2>Basis</h2>
-          <div class="grid g2">
-            ${inp("name", "Naam *", { type: "text", ph: "Gouden Broeder Tripel" })}
-            ${inp("style", "Stijl", { type: "text", ph: "Belgische tripel" })}
-          </div>
           <div class="grid g4">
-            ${inp("batch_no", "Batchnummer", { type: "text", ph: "2026-03" })}
+            ${inp("batch_no", "Batchnummer", { type: "text", ph: "1" })}
             <div class="field"><label for="f_status">Status</label><select id="f_status" data-k="status">${STATUSES.map((s) => `<option ${brew.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></div>
             ${inp("brew_date", "Brouwdatum", { type: "date" })}
             ${inp("bottle_date", "Botteldatum", { type: "date" })}
@@ -752,26 +888,22 @@
           <div class="field"><textarea data-k="tasting_notes" placeholder="Uiterlijk, geur, smaak, mondgevoel, afdronk… en wat de buurman ervan vond.">${esc(brew.tasting_notes || "")}</textarea></div>
         </div>
         <div class="card" style="margin-top:16px">
-          <h2>Publieke site</h2>
-          <label style="display:flex;gap:10px;align-items:center;text-transform:none;font-size:1rem;color:var(--ink)">
-            <input type="checkbox" id="f_is_public" data-k="is_public" style="width:auto" ${brew.is_public ? "checked" : ""}>
-            Toon dit bier op mannenvanmout.nl (alleen naam, stijl, batch, ABV en de tekst hieronder)
-          </label>
-          <div class="field" style="margin-top:12px"><label>Publieke omschrijving</label>
-            <textarea data-k="public_description" placeholder="Een karaktervolle tripel, goud van kleur…">${esc(brew.public_description || "")}</textarea></div>
+          <h2>Voor de volgende batch</h2>
+          <p class="hint" style="margin-top:0">Wat veranderen we de volgende keer? Dit verschijnt bovenaan zodra iemand een nieuwe batch van dit bier start.</p>
+          <div class="field"><textarea data-k="next_time" placeholder="Bijv. 5 g minder Perle, gist 1 °C koeler starten, langer cold crashen.">${esc(brew.next_time || "")}</textarea></div>
+          ${beer ? `<p class="hint">Publieke tekst, Untappd en "op de site tonen" stel je in bij het bier: <a href="#/bier/${beer.id}">${esc(beer.name)}</a>.</p>` : ""}
         </div>
-        <div class="card" style="margin-top:16px" id="untappdCard"></div>
       </div>
 
       <div class="sticky-save"><div class="row">
         <button class="btn" id="save">Opslaan</button>
         <span id="saveMsg" class="hint"></span>
         <span class="spacer"></span>
-        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)" title="Kopie als nieuwe batch"><span class="hide-sm">Kopie als nieuwe batch</span><span class="show-sm">Kopie</span></button><button class="btn small danger" id="del" title="Verwijderen">Verwijderen</button>`}
+        ${isNew ? "" : `<button class="btn small ghost" id="dup" style="color:var(--red)" title="Nieuwe batch met dit recept"><span class="hide-sm">Nieuwe batch met dit recept</span><span class="show-sm">Nieuwe batch</span></button><button class="btn small danger" id="del" title="Verwijderen">Verwijderen</button>`}
       </div></div>`;
 
     // tabs
-    const showTab = (t) => { activeTab = t; if (t === "proeven" && $("#untappdCard") && $("#untappdCard").innerHTML) renderUntappd(); $$("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t)); $$(".pane").forEach((p) => p.classList.toggle("on", p.dataset.p === t)); };
+    const showTab = (t) => { activeTab = t; $$("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t)); $$(".pane").forEach((p) => p.classList.toggle("on", p.dataset.p === t)); };
     $$("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.t)));
     showTab(activeTab);
 
@@ -820,7 +952,6 @@
       markDirty(); renderBrew(); activeTabTo("recept");
     }));
     renderTastings();
-    renderUntappd();
     rowsEditor("hops", [
       { k: "name", l: "Hop", ph: "Saaz", w: "34%" },
       { k: "g", l: "gram", ph: "40", n: true },
@@ -986,13 +1117,14 @@
 
   function payload() {
     const p = {};
-    Object.keys(EMPTY).forEach((k) => (p[k] = brew[k] === undefined ? EMPTY[k] : brew[k]));
+    Object.keys(EMPTY).concat(["name", "style", "batch_no"]).forEach((k) => (p[k] = brew[k] === undefined ? EMPTY[k] : brew[k]));
     ["fermentables", "hops", "others"].forEach((k) => (p[k] = (p[k] || []).filter((r) => Object.values(r).some((v) => v !== null && v !== "" && !HOP_USES.includes(v)) || r.name)));
     return p;
   }
 
   async function save() {
-    if (!brew.name || !brew.name.trim()) { activeTabTo("basis"); alert("Geef het brouwsel eerst een naam."); return; }
+    if (!brew.beer_id) { alert("Deze batch hoort nog niet bij een bier."); return; }
+    if (beer) { brew.name = beer.name; brew.style = beer.style; }
     // niet ongemerkt een nieuwere versie overschrijven (iemand anders, of een ander tabblad)
     if (brew.id && brew.updated_at) {
       const { data: cur } = await sb.from("brews").select("updated_at").eq("id", brew.id).maybeSingle();
@@ -1004,7 +1136,6 @@
     }
     const btn = $("#save"); btn.disabled = true; $("#saveMsg").textContent = "Opslaan…";
     combineKettles();
-    if (brew.untappd_url && !isUntappdUrl(brew.untappd_url)) { activeTabTo("proeven"); alert("De Untappd-link moet beginnen met https://untappd.com/ of https://untp.beer/."); return; }
     const p = payload();
     const q = brew.id ? sb.from("brews").update(p).eq("id", brew.id).select().single() : sb.from("brews").insert(p).select().single();
     const { data, error } = await q;
@@ -1015,29 +1146,23 @@
     }
     const wasNew = !brew.id;
     brew = data; dirty = false;
-    if (wasNew) { location.hash = "#/b/" + data.id; return; } // laadt opnieuw
+    if (wasNew) { prevLesson = null; location.hash = "#/b/" + data.id; return; } // laadt opnieuw
     $("#saveMsg").textContent = "Opgeslagen ✓ " + new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
     drawKpis();
   }
   function activeTabTo(t) { const b = $(`#tabs button[data-t="${t}"]`); if (b) b.click(); }
 
   async function del() {
-    if (!confirm(`“${brew.name}” en alle metingen definitief verwijderen?`)) return;
+    if (!confirm(`Batch #${brew.batch_no} van “${brew.name}” met alle metingen en proeverijen definitief verwijderen?`)) return;
     const { error } = await sb.from("brews").delete().eq("id", brew.id);
     if (error) return alert(error.message);
-    dirty = false; location.hash = "#/";
+    dirty = false; location.hash = brew.beer_id ? "#/bier/" + brew.beer_id : "#/";
   }
 
   function duplicate() {
-    if (dirty && !confirm("Er zijn niet-opgeslagen wijzigingen. Toch een kopie maken?")) return;
-    const copy = JSON.parse(JSON.stringify(brew));
-    ["id", "created_at", "updated_at", "created_by", "abv"].forEach((k) => delete copy[k]);
-    Object.assign(copy, { og: null, fg: null, pre_boil_sg: null, mash_ph: null, bottled_l: null, bottle_date: null, tasting_notes: "", rating: null,
-      is_public: false, status: "gepland", brew_date: new Date().toISOString().slice(0, 10), batch_no: "", kettle_values: {} });
-    brew = copy; measurements = []; activeTab = "basis";
-    history.replaceState(null, "", "#/nieuw");
-    renderBrew(); markDirty();
-    $("#saveMsg").textContent = "Kopie – vergeet niet op te slaan";
+    if (dirty && !confirm("Er zijn niet-opgeslagen wijzigingen. Toch een nieuwe batch starten?")) return;
+    history.pushState(null, "", "#/nieuw?bier=" + brew.beer_id);
+    newBatch(brew.beer_id, brew.id);
   }
 
   /* ---------- Metingen ---------- */
