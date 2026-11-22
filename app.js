@@ -239,7 +239,8 @@
     $("#q").oninput = draw; $("#st").onchange = draw; draw();
   }
   function card(b) {
-    const base = b.abv ?? abv(b.og, b.fg);
+    // onafgerond uit OG/FG rekenen, anders telt de afronding dubbel mee
+    const base = abv(Number(b.og), Number(b.fg)) ?? b.abv;
     const a = base ? Number(base) + primeAbv(b.priming_g_per_l) : base;
     return `<a class="card brew" href="#/b/${b.id}">
       <div class="row"><span class="badge ${b.status}">${esc(b.status)}</span>${b.is_public ? `<span class="badge pub">publiek</span>` : ""}<span class="spacer"></span>${b.rating ? "★".repeat(b.rating) : ""}</div>
