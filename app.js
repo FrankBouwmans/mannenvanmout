@@ -316,7 +316,9 @@
   /* ---------- Untappd: gegevens klaarzetten + link ---------- */
   const isUntappdUrl = (u) => /^https:\/\/(www\.)?(untappd\.com|untp\.beer)\//i.test(String(u || "").trim());
   function untappdFields() {
-    const a = brew.abv ?? abv(brew.og, brew.fg) ?? brew.target_abv;
+    // gemeten ABV inclusief hergisting op fles (bottelsuiker); anders het doel
+    const measured = brew.og && brew.fg ? abv(brew.og, brew.fg) + primeAbv(brew.priming_g_per_l) : null;
+    const a = measured ?? brew.target_abv;
     const feat = (cfg.featuredBeers || []).find((f) => f.name.toLowerCase() === String(brew.name || "").toLowerCase());
     return {
       rows: [
