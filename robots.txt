@@ -1,2 +1,5 @@
 User-agent: *
 Disallow: /app.html
+Disallow: /404.html
+
+Sitemap: https://mannenvanmout.nl/sitemap.xml
