@@ -130,7 +130,7 @@ window.MVM_CONFIG = {
     },
     {
       name: "Gouden Broeder Tripel",
-      brew: "Triple - Mannen van Mout",   // naam van het brouwsel in de brouwlog: ABV en Untappd-link komen daarvandaan
+      brew: "Gouden Broeder Tripel",   // naam van het brouwsel in de brouwlog: ABV en Untappd-link komen daarvandaan
       style: "Belgische tripel",
       abv: null,             // leeg = automatisch uit de brouwlog
       image: "assets/etiket-tripel-voor.jpg?v=2",
