@@ -83,10 +83,10 @@
       const byName = new Map(data.map((b) => [(b.name || "").toLowerCase(), b]));
       // vaste bieren aanvullen met gemeten waarden (bijv. ABV) uit de brouwlog
       const merged = featured.map((f) => {
-        const db = byName.get(f.name.toLowerCase());
+        const db = byName.get((f.brew || f.name).toLowerCase()) || byName.get(f.name.toLowerCase());
         return db ? { ...f, abv: f.abv ?? db.abv, batch_no: f.batch_no ?? db.batch_no, untappd: f.untappd || db.untappd_url } : f;
       });
-      const known = new Set(featured.map((b) => b.name.toLowerCase()));
+      const known = new Set(featured.flatMap((b) => [b.name.toLowerCase(), (b.brew || "").toLowerCase()]).filter(Boolean));
       const extra = data.filter((b) => !known.has((b.name || "").toLowerCase())).map((b) => ({ ...b, untappd: b.untappd_url }));
       el.innerHTML = merged.concat(extra).map(beerCard).join("");
     });
