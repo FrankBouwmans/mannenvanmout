@@ -125,7 +125,7 @@ window.MVM_CONFIG = {
       abv: 6.9,
       image: "assets/etiket-blond.jpg",
       labelFull: "assets/etiket-blond-volledig.jpg",   // voor- en achteretiket (vergroten)
-      untappd: "",   // link naar het bier op Untappd (of vul hem in de brouwlog in)
+      untappd: "https://untappd.com/b/mannen-van-mout-moutmakkers-blond/7651888",   // link naar het bier op Untappd
       description: "Fris en rond, goudblond van kleur en zacht moutig. Vol van smaak en gevaarlijk doordrinkbaar."
     },
     {
