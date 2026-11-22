@@ -76,6 +76,10 @@
   };
   const abv = (og, fg) => (og && fg ? (og - fg) * 131.25 : null);
   const attenuation = (og, fg) => (og && fg && og > 1 ? ((og - fg) / (og - 1)) * 100 : null);
+  // hergisting op fles: 1 g/L kristalsuiker (sucrose) geeft ±0,065% extra alcohol
+  // (0,51 g ethanol per g suiker, dichtheid ethanol 0,789 g/ml)
+  const PRIME_FACTOR = 0.51 / 0.789 / 10;
+  const primeAbv = (gpl) => (gpl ? Number(gpl) * PRIME_FACTOR : 0);
   const plato = (sg) => (sg ? 259 - 259 / sg : null);
   const fmtSG = (v) => (v ? Number(v).toFixed(3) : "–");
   const fmt1 = (v) => (v === null || v === undefined || isNaN(v) ? "–" : Number(v).toFixed(1).replace(".", ","));
@@ -235,7 +239,8 @@
     $("#q").oninput = draw; $("#st").onchange = draw; draw();
   }
   function card(b) {
-    const a = b.abv ?? abv(b.og, b.fg);
+    const base = b.abv ?? abv(b.og, b.fg);
+    const a = base ? Number(base) + primeAbv(b.priming_g_per_l) : base;
     return `<a class="card brew" href="#/b/${b.id}">
       <div class="row"><span class="badge ${b.status}">${esc(b.status)}</span>${b.is_public ? `<span class="badge pub">publiek</span>` : ""}<span class="spacer"></span>${b.rating ? "★".repeat(b.rating) : ""}</div>
       <h3 style="margin-top:8px">${esc(b.name)}</h3>
@@ -864,7 +869,7 @@
 
   function renderGemeten() {
     const host = $("#gemeten"); if (!host) return;
-    const extra = `${inp("ferment_temp_c", "Vergistingstemp. °C", { ph: "20" })}${inp("priming_g_per_l", "Bottelsuiker g/L", { ph: "7" })}`;
+    const extra = `${inp("ferment_temp_c", "Vergistingstemp. °C", { ph: "20" })}${inp("priming_g_per_l", "Bottelsuiker g/L (kristalsuiker)", { ph: "7" })}`;
     if (!multi()) {
       host.innerHTML = `<h2>Gemeten${brew.kettles && brew.kettles.length ? ` <span class="hint" style="font-family:var(--sans)">· ${esc(brew.kettles[0])}</span>` : ""}</h2>
         <div class="grid g2">
@@ -944,7 +949,11 @@
     el.innerHTML =
       k("Begin-SG", fmtSG(og), og ? `${fmt1(plato(og))} °P · doel ${fmtSG(brew.target_og)}` : brew.target_og ? `doel ${fmtSG(brew.target_og)}` : "") +
       k(fg ? "Eind-SG" : "Laatste SG", fmtSG(cur), cur ? `doel ${fmtSG(brew.target_fg)}` : "") +
-      k(fg ? "Alcohol" : "Alcohol tot nu", a ? fmt1(a) + "%" : "–", brew.target_abv ? `doel ${fmt1(brew.target_abv)}%` : "") +
+      (() => {
+        const p = fg ? primeAbv(brew.priming_g_per_l) : 0;
+        const sub = [p ? `incl. +${fmt1(p)}% hergisting op fles` : "", brew.target_abv ? `doel ${fmt1(brew.target_abv)}%` : ""].filter(Boolean).join(" · ");
+        return k(fg ? "Alcohol" : "Alcohol tot nu", a ? fmt1(a + p) + "%" : "–", sub);
+      })() +
       k("Vergistingsgraad", att ? Math.round(att) + "%" : "–", "schijnbaar") +
       k("Volume", brew.volume_l ? fmt1(brew.volume_l) + " L" : "–", brew.bottled_l ? `${fmt1(brew.bottled_l)} L gebotteld` : "");
     if ((brew.kettles || []).length) {
