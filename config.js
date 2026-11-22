@@ -133,8 +133,8 @@ window.MVM_CONFIG = {
       brew: "Gouden Broeder Tripel",   // naam van het brouwsel in de brouwlog: ABV en Untappd-link komen daarvandaan
       style: "Belgische tripel",
       abv: null,             // leeg = automatisch uit de brouwlog
-      image: "assets/etiket-tripel-voor.jpg?v=2",
-      labelFull: "assets/etiket-tripel-volledig.jpg?v=2",
+      image: "assets/etiket-tripel-voor.jpg?v=3",
+      labelFull: "assets/etiket-tripel-volledig.jpg?v=3",
       description: "Een karaktervolle tripel, goud van kleur. Volmoutig, kruidig en met een verfijnde bitterheid."
     }
   ]
