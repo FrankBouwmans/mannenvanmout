@@ -118,7 +118,10 @@
     }
   });
 
+  // apparaten waarop een brouwer inlogt, tellen niet mee in GoatCounter
+  function markBrewerDevice() { try { localStorage.setItem("skipgc", "t"); } catch (e) { /* geen opslag */ } }
   function updateUserbar() {
+    if (session) markBrewerDevice();
     $("#who").textContent = session ? session.user.email : "";
     $("#btnLogout").classList.toggle("hidden", !session);
     $("#btnPw").classList.toggle("hidden", !session);
