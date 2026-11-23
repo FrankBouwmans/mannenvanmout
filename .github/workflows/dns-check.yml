@@ -1,0 +1,18 @@
+name: DNS check (tijdelijk)
+on: workflow_dispatch
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for n in mannenvanmout.nl www.mannenvanmout.nl; do
+            for t in A AAAA CNAME; do echo "== $n $t"; dig +short $n $t @8.8.8.8; done
+          done
+          echo "== NS"; dig +short NS mannenvanmout.nl @8.8.8.8
+          for u in https://mannenvanmout.nl https://www.mannenvanmout.nl http://www.mannenvanmout.nl; do
+            echo "== $u"; curl -sS -o /dev/null -m 15 -w "%{http_code} -> %{redirect_url}\n" "$u" || true
+          done
+          echo "== cert www"; echo | timeout 15 openssl s_client -connect www.mannenvanmout.nl:443 -servername www.mannenvanmout.nl 2>&1 | grep -E "subject=|issuer=|error|alert|Verify" | head -8
+          echo "== cert apex"; echo | timeout 15 openssl s_client -connect mannenvanmout.nl:443 -servername mannenvanmout.nl 2>&1 | grep -E "subject=|issuer=|DNS:" | head -5
+          echo | timeout 15 openssl s_client -connect mannenvanmout.nl:443 -servername mannenvanmout.nl 2>/dev/null | openssl x509 -noout -ext subjectAltName 2>/dev/null
