@@ -653,7 +653,7 @@
   /* ---------- Bezoekers (GoatCounter) ---------- */
   let gcDays = 30;
   async function viewVisitors() {
-    main.innerHTML = `<p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p><h1 style="margin:0 0 4px">Bezoekers</h1><div class="empty">Cijfers ophalen bij GoatCounter…</div>`;
+    main.innerHTML = `<p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p><h1 style="margin:0 0 4px">Bezoekers</h1><div class="empty">Cijfers ophalen bij GoatCounter… dit kan een paar seconden duren.</div>`;
     const iso = (d) => d.toISOString().slice(0, 10);
     const end = new Date(), start = new Date(Date.now() - (gcDays - 1) * 864e5);
     const { data, error } = await sb.functions.invoke("bezoekers", { body: { start: iso(start), end: iso(end) } });
