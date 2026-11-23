@@ -403,3 +403,12 @@ table.vergelijk tbody tr:hover{background:#fff4dc}
 .kies-bier{display:grid;gap:8px}
 .kies-bier a{display:flex;flex-direction:column;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-decoration:none}
 .kies-bier a:hover{border-color:var(--gold);background:#fff4dc}
+
+/* bezoekers */
+.snelmenu{grid-template-columns:repeat(4,minmax(0,1fr));max-width:680px}
+.gc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.gc-rij{margin-bottom:10px}
+.gc-l{display:flex;justify-content:space-between;gap:10px;font-size:.92rem;margin-bottom:4px}
+.gc-l span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-l small{color:var(--muted);font-weight:400}
+.gc-rij .balk span{background:var(--gold)}

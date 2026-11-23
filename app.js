@@ -143,6 +143,7 @@
     if (h === "#/import") return viewImport();
     if (h === "#/ketels") return viewKettles();
     if (h === "#/brouwers") return viewBrewers();
+    if (h === "#/bezoekers") return viewVisitors();
     return viewList();
   }
 
@@ -237,6 +238,7 @@
       <nav class="snelmenu" aria-label="Beheer">
         <a href="#/brouwers">${ICON('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}<span>Brouwers</span></a>
         <a href="#/ketels">${ICON('<path d="M5 8h14v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z"/><path d="M3 8h18M9 4h6M10 4v4M14 4v4M19 11h2v4h-2"/>')}<span>Ketels</span></a>
+        <a href="#/bezoekers">${ICON('<path d="M3 20h18"/><path d="M6 16v-5M11 16V7M16 16v-8M21 16V4"/>')}<span>Bezoekers</span></a>
         <a href="#/import">${ICON('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>')}<span>Importeren</span></a>
       </nav>
       <div class="toolbar zoekbalk">
@@ -646,6 +648,71 @@
       $(`[data-pmsg="${CSS.escape(k)}"]`, main).textContent = error ? "Fout: " + error.message : "Opgeslagen ✓";
       if (!error) PROFILES[k] = prof;
     }));
+  }
+
+  /* ---------- Bezoekers (GoatCounter) ---------- */
+  let gcDays = 30;
+  async function viewVisitors() {
+    main.innerHTML = `<p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p><h1 style="margin:0 0 4px">Bezoekers</h1><div class="empty">Cijfers ophalen bij GoatCounter…</div>`;
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const end = new Date(), start = new Date(Date.now() - (gcDays - 1) * 864e5);
+    const { data, error } = await sb.functions.invoke("bezoekers", { body: { start: iso(start), end: iso(end) } });
+    let msg = null;
+    if (error) {
+      msg = error.message;
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* */ }
+    }
+    const d = typeof data === "string" ? JSON.parse(data) : data || {};
+    const list = (x) => ((x && (x.stats || x.hits)) || []);
+    const tot = d.total || {};
+    const daily = list(tot).map((x) => ({ day: x.day, n: Number(x.daily) || 0 }));
+    const totalN = Number(tot.total) || daily.reduce((a, x) => a + x.n, 0);
+    const pages = list(d.hits).map((h) => ({ name: h.path === "/" ? "Homepage" : h.path === "/quiz.html" ? "Quiz" : h.path === "/404.html" ? "Niet gevonden (404)" : (h.title || h.path), count: Number(h.count) || 0 }));
+    const nm = (x) => ({ name: x.name || x.id || "(onbekend)", count: Number(x.count) || 0 });
+    const devName = { phone: "Telefoon", largephone: "Grote telefoon", tablet: "Tablet", desktop: "Computer", desktophd: "Computer (groot scherm)", unknown: "Onbekend" };
+    const devByName = { phones: "Telefoon", "large phones, small tablets": "Grote telefoon / kleine tablet", "tablets and small laptops": "Tablet / kleine laptop", "computer monitors": "Computer", "computer monitors larger than hd": "Computer (groot scherm)" };
+    const sizes = list(d.sizes).map((x) => ({ count: Number(x.count) || 0, name: devName[String(x.id || "").toLowerCase()] || devByName[String(x.name || "").toLowerCase()] || x.name || "Onbekend" }));
+    const refs = list(d.toprefs).map(nm).map((x) => ({ ...x, name: ["", "(unknown)", "(onbekend)"].includes(x.name) ? "Direct / onbekend" : x.name }));
+    const bar = (title, rows) => {
+      const max = Math.max(1, ...rows.map((r) => r.count)), sum = rows.reduce((a, r) => a + r.count, 0) || 1;
+      return `<div class="card"><h2>${title}</h2>${rows.length ? rows.slice(0, 8).map((r) => `
+        <div class="gc-rij"><div class="gc-l"><span>${esc(r.name)}</span><b>${r.count} <small>${Math.round((r.count / sum) * 100)}%</small></b></div>
+        <span class="balk"><span style="width:${(r.count / max) * 100}%"></span></span></div>`).join("") : `<p class="hint">Nog geen gegevens.</p>`}</div>`;
+    };
+    const chart = () => {
+      if (!daily.length) return "";
+      const W = 720, H = 200, L = 34, B = 26, T = 10, mx = Math.max(1, ...daily.map((x) => x.n)), bw = (W - L - 8) / daily.length;
+      const y = (v) => T + (1 - v / mx) * (H - T - B);
+      let g = "";
+      for (let i = 0; i <= 2; i++) { const v = Math.round((mx * i) / 2); g += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="#eee"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#8a6d50">${v}</text>`; }
+      const every = Math.ceil(daily.length / 8);
+      return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Bezoekers per dag">${g}
+        ${daily.map((x, i) => `<rect x="${L + i * bw + 1}" y="${y(x.n)}" width="${Math.max(1, bw - 2)}" height="${H - B - y(x.n)}" rx="2" fill="#e0a63a"><title>${fmtDate(x.day)}: ${x.n}</title></rect>
+          ${i % every === 0 ? `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#8a6d50">${new Date(x.day).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}</text>` : ""}`).join("")}</svg>`;
+    };
+    const best = daily.reduce((a, x) => (x.n > (a ? a.n : -1) ? x : a), null);
+    main.innerHTML = `
+      <p style="margin:0 0 6px"><a href="#/" style="color:var(--muted)">← alle bieren</a></p>
+      <div class="lijst-kop"><div><h1 style="margin:0">Bezoekers</h1><p class="hint" style="margin:2px 0 0">mannenvanmout.nl · via GoatCounter, zonder cookies · bezoeken van ingelogde brouwers tellen niet mee</p></div>
+        <div class="row">${[7, 30, 90].map((n) => `<button type="button" class="btn small ${n === gcDays ? "" : "ghost"}" ${n === gcDays ? "" : 'style="color:var(--red)"'} data-days="${n}">${n} dagen</button>`).join("")}</div></div>
+      ${msg ? `<div class="msg ${/GC_TOKEN|gekoppeld/.test(msg) ? "info" : "err"}">${esc(msg)}${/GC_TOKEN|gekoppeld/.test(msg) ? "<br>Maak in GoatCounter een API-key (alleen lezen) en zet die in Supabase als Edge Function-secret <code>GC_TOKEN</code>." : ""}</div>` : `
+      <div class="kpis">
+        <div class="kpi"><small>Bezoekers</small><strong>${totalN}</strong><br><span>laatste ${gcDays} dagen</span></div>
+        <div class="kpi"><small>Per dag</small><strong>${fmt1(totalN / gcDays)}</strong><br><span>gemiddeld</span></div>
+        <div class="kpi"><small>Drukste dag</small><strong>${best && best.n ? best.n : "–"}</strong><br><span>${best && best.n ? fmtDate(best.day) : ""}</span></div>
+        <div class="kpi"><small>Quiz</small><strong>${(pages.find((x) => x.name === "Quiz") || {}).count || 0}</strong><br><span>keer geopend</span></div>
+      </div>
+      <div class="card" style="margin:16px 0"><h2>Per dag</h2>${chart() || '<p class="hint">Nog geen bezoeken in deze periode.</p>'}</div>
+      <div class="gc-grid">
+        ${bar("Pagina's", pages)}
+        ${bar("Waar komen ze vandaan?", refs)}
+        ${bar("Land / regio", list(d.locations).map(nm))}
+        ${bar("Apparaat", sizes)}
+        ${bar("Besturingssysteem", list(d.systems).map(nm))}
+        ${bar("Browser", list(d.browsers).map(nm))}
+      </div>
+      <p class="hint" style="margin-top:14px">Meer details: <a href="https://mannenvanmout.goatcounter.com" target="_blank" rel="noopener">mannenvanmout.goatcounter.com</a></p>`}`;
+    $$("[data-days]", main).forEach((b) => (b.onclick = () => { gcDays = Number(b.dataset.days); viewVisitors(); }));
   }
 
   /* ---------- Brouwers (leden) ---------- */
