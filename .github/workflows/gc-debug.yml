@@ -1,8 +1,0 @@
-name: GC debug (tijdelijk)
-on: workflow_dispatch
-permissions: {}
-jobs:
-  d:
-    runs-on: ubuntu-latest
-    steps:
-      - run: curl -s -m 60 "https://eujyabceagfxvtxluzai.supabase.co/functions/v1/gc-debug?k=mvm-7Hq2"
