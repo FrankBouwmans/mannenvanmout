@@ -667,7 +667,14 @@
     const tot = d.total || {};
     const daily = list(tot).map((x) => ({ day: x.day, n: Number(x.daily) || 0 }));
     const totalN = Number(tot.total) || daily.reduce((a, x) => a + x.n, 0);
-    const pages = list(d.hits).map((h) => ({ name: h.path === "/" ? "Homepage" : h.path === "/quiz.html" ? "Quiz" : h.path === "/404.html" ? "Niet gevonden (404)" : (h.title || h.path), count: Number(h.count) || 0 }));
+    const isQuiz = (h) => h.event && String(h.path || "").startsWith("quiz-uitslag/");
+    const quizCount = {};
+    list(d.hits).filter(isQuiz).forEach((h) => { const n = h.title || h.path.slice(13); quizCount[n] = (quizCount[n] || 0) + (Number(h.count) || 0); });
+    const quizRows = (cfg.brewers || []).map((b) => ({ name: `${b.name} – ${b.role}`, count: quizCount[b.name] || 0 }))
+      .concat(Object.keys(quizCount).filter((n) => !(cfg.brewers || []).some((b) => b.name === n)).map((n) => ({ name: n, count: quizCount[n] })))
+      .sort((a, b) => b.count - a.count);
+    const quizTotal = quizRows.reduce((a, r) => a + r.count, 0);
+    const pages = list(d.hits).filter((h) => !h.event).map((h) => ({ name: h.path === "/" ? "Homepage" : h.path === "/quiz.html" ? "Quiz" : h.path === "/404.html" ? "Niet gevonden (404)" : (h.title || h.path), count: Number(h.count) || 0 }));
     const nm = (x) => ({ name: x.name || x.id || "(onbekend)", count: Number(x.count) || 0 });
     const devName = { phone: "Telefoon", largephone: "Grote telefoon", tablet: "Tablet", desktop: "Computer", desktophd: "Computer (groot scherm)", unknown: "Onbekend" };
     const devByName = { phones: "Telefoon", "large phones, small tablets": "Grote telefoon / kleine tablet", "tablets and small laptops": "Tablet / kleine laptop", "computer monitors": "Computer", "computer monitors larger than hd": "Computer (groot scherm)" };
@@ -700,10 +707,11 @@
         <div class="kpi"><small>Bezoekers</small><strong>${totalN}</strong><br><span>laatste ${gcDays} dagen</span></div>
         <div class="kpi"><small>Per dag</small><strong>${fmt1(totalN / gcDays)}</strong><br><span>gemiddeld</span></div>
         <div class="kpi"><small>Drukste dag</small><strong>${best && best.n ? best.n : "–"}</strong><br><span>${best && best.n ? fmtDate(best.day) : ""}</span></div>
-        <div class="kpi"><small>Quiz</small><strong>${(pages.find((x) => x.name === "Quiz") || {}).count || 0}</strong><br><span>keer geopend</span></div>
+        <div class="kpi"><small>Quiz</small><strong>${(pages.find((x) => x.name === "Quiz") || {}).count || 0}</strong><br><span>keer geopend${quizTotal ? ` · ${quizTotal}× uitgespeeld` : ""}</span></div>
       </div>
       <div class="card" style="margin:16px 0"><h2>Per dag</h2>${chart() || '<p class="hint">Nog geen bezoeken in deze periode.</p>'}</div>
       <div class="gc-grid">
+        ${quizTotal ? bar("Uitslag quiz: wie ben jij?", quizRows) : `<div class="card"><h2>Uitslag quiz: wie ben jij?</h2><p class="hint">Nog geen quiz uitgespeeld in deze periode. Uitslagen worden geteld vanaf 24 november 2026.</p></div>`}
         ${bar("Pagina's", pages)}
         ${bar("Waar komen ze vandaan?", refs)}
         ${bar("Land / regio", list(d.locations).map(nm))}

@@ -26,6 +26,15 @@
     const first = host.querySelector(".antwoord"); if (first && step > 0) first.focus();
   }
 
+  // Uitslag als GoatCounter-event tellen (geen persoonsgegevens; eigen apparaten worden overgeslagen via skipgc)
+  function telUitslag(naam, poging = 0) {
+    if (!naam) return;
+    const gc = window.goatcounter;
+    if (gc && typeof gc.count === "function") {
+      gc.count({ path: "quiz-uitslag/" + naam.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title: naam, event: true });
+    } else if (poging < 10) setTimeout(() => telUitslag(naam, poging + 1), 500);
+  }
+
   function uitslag() {
     // hoogste score wint; bij gelijkspel kiest het toeval
     const top = Math.max(...scores);
@@ -33,6 +42,7 @@
     const best = kandidaten[Math.floor(Math.random() * kandidaten.length)];
     const b = brewers[best] || {};
     const tekst = (quiz.results || {})[b.name] || b.quote || "";
+    telUitslag(b.name);
     const deeltekst = `Ik ben ${b.name}, ${String(b.role || "").toLowerCase()}! Welke Moutman ben jij? https://mannenvanmout.nl/quiz.html`;
     host.innerHTML = `
       <div class="uitslag">
